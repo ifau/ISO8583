@@ -21,10 +21,8 @@ public final class ISOMessageSerializer {
         tempData.append(bitmap)
         
         for fieldNumber in message.fields.keys.sorted() {
-            guard let value = message.fields[fieldNumber] else {
-                throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Value is incorrect string"])
-            }
-            let field = try serializeField(value: value, format: scheme.fieldFormat(for: fieldNumber))
+            let value = message.fields[fieldNumber] ?? ""
+            let field = try serializeField(fieldNumber: fieldNumber, value: value, format: scheme.fieldFormat(for: fieldNumber))
             tempData.append(field)
         }
         
@@ -39,7 +37,7 @@ public final class ISOMessageSerializer {
     internal func serializeLength(_ length: UInt, numberOfBytes: UInt, format: ISONumberFormat) throws -> Data {
         
         guard numberOfBytes > 0 else {
-            throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Number of bytes for length must be more than zero"])
+            throw ISOError.serializeMessageFailed(reason: .lengthIsMoreThanMaximumLengthForDeclaredFormat(maximumLength: 0, actualLength: length))
         }
         
         let asciiString = String(format: "%0\(numberOfBytes)d", length)
@@ -47,8 +45,10 @@ public final class ISOMessageSerializer {
         switch format {
         case .bcd:
             /// Check length is less or equal to max value (99 for 1 byte, 9999 for 2 bytes, 999999 for 3 bytes, etc.)
-            guard Double(length) < pow(Double(10), Double(2*numberOfBytes)) else {
-                throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Cannot serialize length for provided number of bytes"])
+            let maximumLengthFloat = pow(Float(10), Float(2*numberOfBytes)) - 1
+            let maximumLength = maximumLengthFloat < Float(UInt.max) ? UInt(maximumLengthFloat) : UInt.max
+            guard length <= maximumLength else {
+                throw ISOError.serializeMessageFailed(reason: .lengthIsMoreThanMaximumLengthForDeclaredFormat(maximumLength: maximumLength, actualLength: length))
             }
             var result : [UInt8] = []
             let asciiBytesOfLengthString = asciiString.compactMap { $0.asciiValue }
@@ -73,11 +73,14 @@ public final class ISOMessageSerializer {
             
         case .ascii:
             /// Check length is less or equal to max value (9 for 1 byte, 99 for two bytes, 999 for three bytes, etc.)
-            guard Double(length) < pow(Double(10), Double(numberOfBytes)) else {
-                throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Cannot serialize length for provided number of bytes"])
+            let maximumLengthFloat = pow(Float(10), Float(numberOfBytes)) - 1
+            let maximumLength = maximumLengthFloat < Float(UInt.max) ? UInt(maximumLengthFloat) : UInt.max
+            guard length <= maximumLength else {
+                throw ISOError.serializeMessageFailed(reason: .lengthIsMoreThanMaximumLengthForDeclaredFormat(maximumLength: maximumLength, actualLength: length))
             }
             guard let result = asciiString.data(using: .ascii) else {
-                throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Cannot serialize ascii length"])
+                /// Should never happen
+                throw ISOError.serializeMessageFailed(reason: .lengthIsMoreThanMaximumLengthForDeclaredFormat(maximumLength: maximumLength, actualLength: length))
             }
             return result
         }
@@ -86,7 +89,7 @@ public final class ISOMessageSerializer {
     internal func serializeMTI(_ mti: UInt, format: ISONumberFormat) throws -> Data {
         
         guard mti <= 9999 else {
-            throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Cannot serialize MTI"])
+            throw ISOError.serializeMessageFailed(reason: .messageContainIncorrectMTI(mti))
         }
         
         switch format {
@@ -99,12 +102,9 @@ public final class ISOMessageSerializer {
     
     internal func serializeBitmap(fieldNumbers: [UInt]) throws -> Data {
         
-        guard !fieldNumbers.contains(where: { $0 > 128 }) else {
-            throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Cannot serialize more than 128 fields"])
-        }
-        
-        guard !fieldNumbers.contains(where: { $0 < 2 }) else {
-            throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Message cannot contain fields 0 or 1"])
+        let incorrectFieldNumbers = fieldNumbers.filter { ($0 < 2) || ($0 > 128) }
+        guard incorrectFieldNumbers.count == 0 else {
+            throw ISOError.serializeMessageFailed(reason: .messageContainIncorrectFieldNumbers(incorrectFieldNumbers))
         }
         
         let haveSecondaryBitmap = fieldNumbers.contains(where: { $0 > 64 })
@@ -129,18 +129,18 @@ public final class ISOMessageSerializer {
         return Data(bytes: bitMap, count: bitMap.count)
     }
     
-    internal func serializeField(value: String, format: ISOFieldFormat) throws -> Data {
+    internal func serializeField(fieldNumber: UInt = 0, value: String, format: ISOFieldFormat) throws -> Data {
         
         switch format {
         case .alpha(let length):
             guard value.count == length else {
-                throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Value length is not equal to declared length"])
+                throw ISOError.serializeMessageFailed(reason: .fieldLengthIsNotEqualToDeclaredLength(fieldNumber: fieldNumber, declaredLength: length, actualLength: UInt(value.count)))
             }
             guard (value.unicodeScalars.filter { !$0.isASCII }.count == 0) else {
-                throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Value is incorrect ascii string"])
+                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "ascii", actualValue: value))
             }
             guard let result = value.data(using: .ascii) else {
-                throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Value is incorrect ascii string"])
+                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber:fieldNumber, declaredFormat: "ascii", actualValue: value))
             }
             return result
         case .binary(let length):
@@ -149,10 +149,10 @@ public final class ISOMessageSerializer {
                 hexCharacterSet.insert(char)
             }
             guard value.rangeOfCharacter(from: hexCharacterSet.inverted) == nil else {
-                throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Value is incorrect hex string"])
+                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "hex", actualValue: value))
             }
             guard value.count == (length * 2) else {
-                throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Value length is not equal to declared length"])
+                throw ISOError.serializeMessageFailed(reason: .fieldLengthIsNotEqualToDeclaredLength(fieldNumber: fieldNumber, declaredLength: length, actualLength: UInt(value.count / 2)))
             }
             
             let chars = Array(value)
@@ -163,10 +163,10 @@ public final class ISOMessageSerializer {
         
         case .numeric(let length):
             guard value.count == length else {
-                throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Value length is not equal to declared length"])
+                throw ISOError.serializeMessageFailed(reason: .fieldLengthIsNotEqualToDeclaredLength(fieldNumber: fieldNumber, declaredLength: length, actualLength: UInt(value.count)))
             }
             guard let numericValue = UInt(value) else {
-                throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Value is incorrect numeric string"])
+                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "numeric", actualValue: value))
             }
             
             let numberOfBytes : UInt = (length % 2 == 1) ? ((length + 1) / 2) : (length / 2)
@@ -197,13 +197,13 @@ public final class ISOMessageSerializer {
             }
             
             guard (value.unicodeScalars.filter { !$0.isASCII }.count == 0) else {
-                throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Value is incorrect ascii string"])
+                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "ascii", actualValue: value))
             }
             guard let encodedValue = value.data(using: .ascii) else {
-                throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Value is incorrect ascii string"])
+                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "ascii", actualValue: value))
             }
             guard encodedValue.count <= maximumNumberOfBytesForValue else {
-                throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Value length is more than maximum length"])
+                throw ISOError.serializeMessageFailed(reason: .fieldValueIsMoreThanMaximumLengthForDeclaredFormat(fieldNumber: fieldNumber, maximumLength: UInt(maximumNumberOfBytesForValue), actualLength: UInt(encodedValue.count)))
             }
             
             let encodedLength = try serializeLength(UInt(encodedValue.count), numberOfBytes: numberOfBytesForLength, format: lengthFormat)
@@ -235,7 +235,7 @@ public final class ISOMessageSerializer {
             }
             
             guard value.count % 2 == 0 else {
-                throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Value is incorrect hex string"])
+                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "hex", actualValue: value))
             }
             
             var hexCharacterSet = CharacterSet()
@@ -243,7 +243,7 @@ public final class ISOMessageSerializer {
                 hexCharacterSet.insert(char)
             }
             guard value.rangeOfCharacter(from: hexCharacterSet.inverted) == nil else {
-                throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Value is incorrect hex string"])
+                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "hex", actualValue: value))
             }
             
             let chars = Array(value)
@@ -252,7 +252,7 @@ public final class ISOMessageSerializer {
                 .compactMap{ $0 }
             
             guard encodedValue.count <= maximumNumberOfBytesForValue else {
-                throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Value length is more than maximum length"])
+                throw ISOError.serializeMessageFailed(reason: .fieldValueIsMoreThanMaximumLengthForDeclaredFormat(fieldNumber: fieldNumber, maximumLength: UInt(maximumNumberOfBytesForValue), actualLength: UInt(encodedValue.count)))
             }
             
             let encodedLength = try serializeLength(UInt(encodedValue.count), numberOfBytes: numberOfBytesForLength, format: lengthFormat)
@@ -284,7 +284,7 @@ public final class ISOMessageSerializer {
             }
             
             guard value.rangeOfCharacter(from: CharacterSet.decimalDigits.inverted) == nil else {
-                throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Value is incorrect numeric string"])
+                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "numeric", actualValue: value))
             }
             
             var chars = Array(value)
@@ -294,7 +294,7 @@ public final class ISOMessageSerializer {
             
             let numberOfBytesForValue = chars.count / 2
             guard numberOfBytesForValue <= maximumNumberOfBytesForValue else {
-                throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Value length is more than maximum length"])
+                throw ISOError.serializeMessageFailed(reason: .fieldValueIsMoreThanMaximumLengthForDeclaredFormat(fieldNumber: fieldNumber, maximumLength: UInt(maximumNumberOfBytesForValue), actualLength: UInt(numberOfBytesForValue)))
             }
             
             let encodedValue: [UInt8] = stride(from: 0, to: chars.count, by: 2)
@@ -307,7 +307,7 @@ public final class ISOMessageSerializer {
             return result
             
         case .undefined:
-            throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey:"Field format is undefined"])
+            throw ISOError.serializeMessageFailed(reason: .fieldFormatIsUndefined(fieldNumber: fieldNumber))
         }
     }
 }
