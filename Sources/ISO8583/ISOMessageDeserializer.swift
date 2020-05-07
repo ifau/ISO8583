@@ -9,6 +9,10 @@ import Foundation
 
 public final class ISOMessageDeserializer {
     
+    public init() {
+        
+    }
+    
     public func deserialize(data: Data, scheme: ISOScheme) throws -> ISOMessage {
         
         let message = ISOMessage()

@@ -12,7 +12,11 @@ public final class ISOMessage {
     var mti: UInt = 0
     var fields : [UInt:String] = [:]
     
-    convenience init(mti: UInt, fields: [UInt:String]) {
+    public init() {
+        
+    }
+    
+    public convenience init(mti: UInt, fields: [UInt:String]) {
         self.init()
         self.mti = mti
         self.fields = fields
