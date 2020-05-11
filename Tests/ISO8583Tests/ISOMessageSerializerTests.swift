@@ -111,7 +111,7 @@ final class ISOMessageSerializerTests: XCTestCase {
         let alphaFieldData = alphaFieldValue.data(using: .ascii)!
 
         let fieldLength = UInt(alphaFieldValue.count)
-        let fieldFormat = ISOFieldFormat.alpha(length: fieldLength)
+        let fieldFormat = ISOFieldFormat.alpha(length: fieldLength, valueFormat: [.a, .n, .s])
 
         // When
 
@@ -178,8 +178,8 @@ final class ISOMessageSerializerTests: XCTestCase {
         let dataWithBCDEncodedLength = Data([bcdLength, valueData].flatMap { $0 })
         let dataWithASCIIEncodedLength = Data([asciiLength, valueData].flatMap { $0 })
 
-        let fieldFormatWithBCDEncodedLength = ISOFieldFormat.llvar(lengthFormat: .bcd)
-        let fieldFormatWithASCIIEncodedLength = ISOFieldFormat.llvar(lengthFormat: .ascii)
+        let fieldFormatWithBCDEncodedLength = ISOFieldFormat.llvar(lengthFormat: .bcd, valueFormat: [.a, .n, .s])
+        let fieldFormatWithASCIIEncodedLength = ISOFieldFormat.llvar(lengthFormat: .ascii, valueFormat: [.a, .n, .s])
 
         // When
 
@@ -206,8 +206,8 @@ final class ISOMessageSerializerTests: XCTestCase {
         let dataWithBCDEncodedLength = Data([bcdLength, valueData].flatMap { $0 })
         let dataWithASCIIEncodedLength = Data([asciiLength, valueData].flatMap { $0 })
 
-        let fieldFormatWithBCDEncodedLength = ISOFieldFormat.lllvar(lengthFormat: .bcd)
-        let fieldFormatWithASCIIEncodedLength = ISOFieldFormat.lllvar(lengthFormat: .ascii)
+        let fieldFormatWithBCDEncodedLength = ISOFieldFormat.lllvar(lengthFormat: .bcd, valueFormat: [.a, .n, .s])
+        let fieldFormatWithASCIIEncodedLength = ISOFieldFormat.lllvar(lengthFormat: .ascii, valueFormat: [.a, .n, .s])
 
         // When
 

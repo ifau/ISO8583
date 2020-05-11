@@ -136,24 +136,21 @@ public final class ISOMessageSerializer {
     internal func serializeField(fieldNumber: UInt = 0, value: String, format: ISOFieldFormat) throws -> Data {
         
         switch format {
-        case .alpha(let length):
+        case .alpha(let length, let valueFormat):
             guard value.count == length else {
                 throw ISOError.serializeMessageFailed(reason: .fieldLengthIsNotEqualToDeclaredLength(fieldNumber: fieldNumber, declaredLength: length, actualLength: UInt(value.count)))
             }
-            guard (value.unicodeScalars.filter { !$0.isASCII }.count == 0) else {
-                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "ascii", actualValue: value))
+            guard value.isConfirmToFormat(valueFormat) else {
+                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: valueFormat, actualValue: value))
             }
             guard let result = value.data(using: .ascii) else {
-                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber:fieldNumber, declaredFormat: "ascii", actualValue: value))
+                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber:fieldNumber, declaredFormat: valueFormat, actualValue: value))
             }
             return result
         case .binary(let length):
-            var hexCharacterSet = CharacterSet()
-            for char in "0123456789abcdefABCDEF".unicodeScalars {
-                hexCharacterSet.insert(char)
-            }
-            guard value.rangeOfCharacter(from: hexCharacterSet.inverted) == nil else {
-                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "hex", actualValue: value))
+
+            guard value.count % 2 == 0, value.isConfirmToFormat(.hex) else {
+                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: .hex, actualValue: value))
             }
             guard value.count == (length * 2) else {
                 throw ISOError.serializeMessageFailed(reason: .fieldLengthIsNotEqualToDeclaredLength(fieldNumber: fieldNumber, declaredLength: length, actualLength: UInt(value.count / 2)))
@@ -169,15 +166,15 @@ public final class ISOMessageSerializer {
             guard value.count == length else {
                 throw ISOError.serializeMessageFailed(reason: .fieldLengthIsNotEqualToDeclaredLength(fieldNumber: fieldNumber, declaredLength: length, actualLength: UInt(value.count)))
             }
-            guard let numericValue = UInt(value) else {
-                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "numeric", actualValue: value))
+            guard value.isConfirmToFormat(.n), let numericValue = UInt(value) else {
+                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: .n, actualValue: value))
             }
             
             let numberOfBytes : UInt = (length % 2 == 1) ? ((length + 1) / 2) : (length / 2)
             let result = try serializeLength(numericValue, numberOfBytes: numberOfBytes, format: .bcd)
             return result
             
-        case .llvar(let lengthFormat), .lllvar(let lengthFormat):
+        case .llvar(let lengthFormat, let valueFormat), .lllvar(let lengthFormat, let valueFormat):
             
             var result = Data()
             var numberOfBytesForLength : UInt = 0
@@ -200,11 +197,11 @@ public final class ISOMessageSerializer {
                 maximumNumberOfBytesForValue = Int(pow(Double(10), Double(numberOfBytesForLength))) - 1
             }
             
-            guard (value.unicodeScalars.filter { !$0.isASCII }.count == 0) else {
-                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "ascii", actualValue: value))
+            guard value.isConfirmToFormat(valueFormat) else {
+                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: valueFormat, actualValue: value))
             }
             guard let encodedValue = value.data(using: .ascii) else {
-                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "ascii", actualValue: value))
+                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: valueFormat, actualValue: value))
             }
             guard encodedValue.count <= maximumNumberOfBytesForValue else {
                 throw ISOError.serializeMessageFailed(reason: .fieldValueIsMoreThanMaximumLengthForDeclaredFormat(fieldNumber: fieldNumber, maximumLength: UInt(maximumNumberOfBytesForValue), actualLength: UInt(encodedValue.count)))
@@ -238,16 +235,8 @@ public final class ISOMessageSerializer {
                 maximumNumberOfBytesForValue = Int(pow(Double(10), Double(numberOfBytesForLength))) - 1
             }
             
-            guard value.count % 2 == 0 else {
-                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "hex", actualValue: value))
-            }
-            
-            var hexCharacterSet = CharacterSet()
-            for char in "0123456789abcdefABCDEF".unicodeScalars {
-                hexCharacterSet.insert(char)
-            }
-            guard value.rangeOfCharacter(from: hexCharacterSet.inverted) == nil else {
-                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "hex", actualValue: value))
+            guard value.count % 2 == 0, value.isConfirmToFormat(.hex) else {
+                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: .hex, actualValue: value))
             }
             
             let chars = Array(value)
@@ -287,8 +276,8 @@ public final class ISOMessageSerializer {
                 maximumNumberOfBytesForValue = Int(pow(Double(10), Double(numberOfBytesForLength))) - 1
             }
             
-            guard value.rangeOfCharacter(from: CharacterSet.decimalDigits.inverted) == nil else {
-                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "numeric", actualValue: value))
+            guard value.isConfirmToFormat(.n) else {
+                throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: .n, actualValue: value))
             }
             
             var chars = Array(value)

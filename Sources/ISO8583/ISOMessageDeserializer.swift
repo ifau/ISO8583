@@ -58,7 +58,7 @@ public final class ISOMessageDeserializer {
                 guard fieldNumber != 1, fieldNumber != 65, fieldNumber != 129 else { continue }
                 
                 let fieldFormat = scheme.fieldFormat(for: fieldNumber)
-                let (fieldData, restData) = try readField(data: tempData, format: fieldFormat)
+                let (fieldData, restData) = try readField(fieldNumber: fieldNumber, data: tempData, format: fieldFormat)
                 tempData = restData
                 message.fields[fieldNumber] = fieldData
             }
@@ -146,7 +146,7 @@ public final class ISOMessageDeserializer {
     internal func readField(fieldNumber: UInt = 0, data: Data, format: ISOFieldFormat) throws -> (String, Data) {
         
         switch format {
-        case .alpha(let length):
+        case .alpha(let length, let valueFormat):
             
             guard length > 0 else {
                 return ("", data)
@@ -156,10 +156,10 @@ public final class ISOMessageDeserializer {
             }
             guard let value = String(data: data.subdata(in: Range(0...Int(length - 1))), encoding: .ascii) else {
                 let hexString = data.subdata(in: Range(0...Int(length - 1))).map { String(format: "%02X", $0) }.joined()
-                throw ISOError.deserializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "ascii", actualValue: hexString))
+                throw ISOError.deserializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: valueFormat, actualValue: hexString))
             }
-            guard (value.unicodeScalars.filter { !$0.isASCII }.count == 0) else {
-                throw ISOError.deserializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "ascii", actualValue: value))
+            guard value.isConfirmToFormat(valueFormat) else {
+                throw ISOError.deserializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: valueFormat, actualValue: value))
             }
             let restData = data.count > length ? data.subdata(in: Range(Int(length)...data.count - 1)) : Data()
             return (value, restData)
@@ -194,14 +194,14 @@ public final class ISOMessageDeserializer {
                 value.removeFirst()
             }
             
-            guard value.rangeOfCharacter(from: CharacterSet.decimalDigits.inverted) == nil else {
-                throw ISOError.deserializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "numeric", actualValue: value))
+            guard value.isConfirmToFormat(.n) else {
+                throw ISOError.deserializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: .n, actualValue: value))
             }
             
             let restData = data.count > numberOfBytesToRead ? data.subdata(in: Range(Int(numberOfBytesToRead)...data.count - 1)) : Data()
             return (value, restData)
             
-        case .llvar(let lengthFormat), .lllvar(let lengthFormat):
+        case .llvar(let lengthFormat, let valueFormat), .lllvar(let lengthFormat, let valueFormat):
             
             var lengthLength = 0
             var valueLength = 0
@@ -235,10 +235,10 @@ public final class ISOMessageDeserializer {
             }
             guard let value = String(data: data.subdata(in: Range(lengthLength...lengthLength + valueLength - 1)), encoding: .ascii) else {
                 let hexString = data.subdata(in: Range(lengthLength...lengthLength + valueLength - 1)).map { String(format: "%02X", $0) }.joined()
-                throw ISOError.deserializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "ascii", actualValue: hexString))
+                throw ISOError.deserializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: valueFormat, actualValue: hexString))
             }
-            guard (value.unicodeScalars.filter { !$0.isASCII }.count == 0) else {
-                throw ISOError.deserializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "ascii", actualValue: value))
+            guard value.isConfirmToFormat(valueFormat) else {
+                throw ISOError.deserializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: valueFormat, actualValue: value))
             }
             let restData = data.count > lengthLength + valueLength ? data.subdata(in: Range((lengthLength + valueLength)...data.count - 1)) : Data()
             return (value, restData)
@@ -324,8 +324,8 @@ public final class ISOMessageDeserializer {
                 value.removeFirst()
             }
             
-            guard value.rangeOfCharacter(from: CharacterSet.decimalDigits.inverted) == nil else {
-                throw ISOError.deserializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: "numeric", actualValue: value))
+            guard value.isConfirmToFormat(.n) else {
+                throw ISOError.deserializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: .n, actualValue: value))
             }
             
             let restData = data.count > lengthLength + numberOfBytesForValue ? data.subdata(in: Range((lengthLength + numberOfBytesForValue)...data.count - 1)) : Data()

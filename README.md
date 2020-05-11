@@ -40,17 +40,17 @@ class CustomProcessingScheme: ISOScheme {
     func fieldFormat(for fieldNumber: UInt) -> ISOFieldFormat {
         switch fieldNumber {
         case 3:
-            return .numeric(length: 6)        // Processing code
+            return .numeric(length: 6)                          // Processing code
         case 24:
-            return .numeric(length: 3)        // Function code
+            return .numeric(length: 3)                          // Function code
         case 35:
-            return .llvar(lengthFormat: .bcd) // Track 2
+            return .llvar(lengthFormat: .bcd, valueFormat:[.z]) // Track 2
         case 38:
-            return .alpha(length: 6)          // Approval Code
+            return .alpha(length: 6, valueFormat:[.a, .n, .p])  // Approval Code
         case 39:
-            return .numeric(length: 3)        // Response code
+            return .numeric(length: 3)                          // Response code
         case 64:
-            return .binary(length: 8)         // Message authentication code
+            return .binary(length: 8)                           // Message authentication code
         default:
             return .undefined
         }

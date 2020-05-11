@@ -26,7 +26,7 @@ public enum ISOError : Error {
         /// Length of field is not equal to length declared for this field in `ISOScheme` protocol
         case fieldLengthIsNotEqualToDeclaredLength(fieldNumber: UInt, declaredLength: UInt, actualLength: UInt)
         /// Value of field contain unacceptable characters
-        case fieldValueIsNotConformToDeclaredFormat(fieldNumber: UInt, declaredFormat: String, actualValue: String)
+        case fieldValueIsNotConformToDeclaredFormat(fieldNumber: UInt, declaredFormat: ISOStringFormat, actualValue: String)
         /// Length of field value is more than declared field format can encode
         case fieldValueIsMoreThanMaximumLengthForDeclaredFormat(fieldNumber: UInt, maximumLength: UInt, actualLength: UInt)
         /// Field format is undefined
@@ -51,7 +51,7 @@ public enum ISOError : Error {
         /// Length of field is not equal to length declared for this field in `ISOScheme` protocol
         case fieldLengthIsNotEqualToDeclaredLength(fieldNumber: UInt, declaredLength: UInt, actualLength: UInt)
         /// Value of field contain unacceptable characters
-        case fieldValueIsNotConformToDeclaredFormat(fieldNumber: UInt, declaredFormat: String, actualValue: String)
+        case fieldValueIsNotConformToDeclaredFormat(fieldNumber: UInt, declaredFormat: ISOStringFormat, actualValue: String)
         /// Provided data is lnot enough for decode field length
         case notEnoughDataForDecodeFieldLength(fieldNumber: UInt)
         /// Value of field is less than length decoded from message
