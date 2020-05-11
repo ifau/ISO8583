@@ -50,6 +50,16 @@ final class ISOMessageSerializerTests: XCTestCase {
         XCTAssertEqual(threeBytesBCDLengthResult, threeBytesBCDLength)
         XCTAssertEqual(tenBytesASCIILengthResult, tenBytesASCIILength)
         XCTAssertEqual(tenBytesBCDLengthResult, tenBytesBCDLength)
+        
+        XCTAssertThrowsError(try messageSerializer.serializeLength(1_000, numberOfBytes: 3, format: .ascii)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.lengthIsMoreThanMaximumLengthForDeclaredFormat(_, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageSerializer.serializeLength(1_000_000, numberOfBytes: 3, format: .bcd)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.lengthIsMoreThanMaximumLengthForDeclaredFormat(_, _) = reason else { return XCTFail() }
+        }
     }
     
     func testSerializeMTI() {
@@ -59,8 +69,10 @@ final class ISOMessageSerializerTests: XCTestCase {
         let messageSerializer = ISOMessageSerializer()
         
         let value : UInt = 800
-        let bcdEncodedMTI = Data([0x08, 0x00])
-        let asciiEncodedMTI = "0800".data(using: .ascii)!
+        let bcdEncodedValue = Data([0x08, 0x00])
+        let asciiEncodedValue = "0800".data(using: .ascii)!
+        
+        let incorrectValue : UInt = 10_000
         
         // When
         
@@ -69,8 +81,18 @@ final class ISOMessageSerializerTests: XCTestCase {
         
         // Then
         
-        XCTAssertEqual(asciiEncodedResult, asciiEncodedMTI)
-        XCTAssertEqual(bcdEncodedResult, bcdEncodedMTI)
+        XCTAssertEqual(asciiEncodedResult, asciiEncodedValue)
+        XCTAssertEqual(bcdEncodedResult, bcdEncodedValue)
+        
+        XCTAssertThrowsError(try messageSerializer.serializeMTI(incorrectValue, format: .ascii)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.messageContainIncorrectMTI(_) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageSerializer.serializeMTI(incorrectValue, format: .bcd)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.messageContainIncorrectMTI(_) = reason else { return XCTFail() }
+        }
     }
     
     func testSerializeBitmap() {
@@ -88,6 +110,8 @@ final class ISOMessageSerializerTests: XCTestCase {
         let fieldsSet3 : [UInt] = [121, 122, 123, 124, 125, 126, 127, 128]
         let fieldsSet3Bitmap = Data([0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff])
         
+        let incorrectFieldsSet : [UInt] = [0, 1]
+        
         // When
         
         let serializedBitmapFromSet1 = try! messageSerializer.serializeBitmap(fieldNumbers: fieldsSet1)
@@ -99,6 +123,11 @@ final class ISOMessageSerializerTests: XCTestCase {
         XCTAssertEqual(serializedBitmapFromSet1, fieldsSet1Bitmap)
         XCTAssertEqual(serializedBitmapFromSet2, fieldsSet2Bitmap)
         XCTAssertEqual(serializedBitmapFromSet3, fieldsSet3Bitmap)
+        
+        XCTAssertThrowsError(try messageSerializer.serializeBitmap(fieldNumbers: incorrectFieldsSet)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.messageContainIncorrectFieldNumbers(_) = reason else { return XCTFail() }
+        }
     }
     
     func testSerializeFieldAlpha() {
@@ -106,20 +135,54 @@ final class ISOMessageSerializerTests: XCTestCase {
         // Given
         
         let messageSerializer = ISOMessageSerializer()
-
-        let alphaFieldValue = "alpha_field_value"
-        let alphaFieldData = alphaFieldValue.data(using: .ascii)!
-
-        let fieldLength = UInt(alphaFieldValue.count)
-        let fieldFormat = ISOFieldFormat.alpha(length: fieldLength, valueFormat: [.a, .n, .s])
-
+        
+        let aValue = "alphazxc"
+        let anValue = "alpha123"
+        let ansValue = "alpha12$"
+        
+        let aValueData = aValue.data(using: .ascii)!
+        let anValueData = anValue.data(using: .ascii)!
+        let ansValueData = ansValue.data(using: .ascii)!
+        
+        let aValueWithWrongLength = "alpha"
+        let anValueWithControlCharacter = "alpha12\u{1D}"
+        
+        let fieldLength = UInt(aValue.count)
+        let aFieldFormat = ISOFieldFormat.alpha(length: fieldLength, valueFormat: [.a])
+        let anFieldFormat = ISOFieldFormat.alpha(length: fieldLength, valueFormat: [.a, .n])
+        let ansFieldFormat = ISOFieldFormat.alpha(length: fieldLength, valueFormat: [.a, .n, .s])
+        
         // When
-
-        let serializeAlphaFieldResult = try! messageSerializer.serializeField(value: alphaFieldValue, format: fieldFormat)
-
+        
+        let serializeAValueResult = try! messageSerializer.serializeField(value: aValue, format: aFieldFormat)
+        let serializeAnValueResult = try! messageSerializer.serializeField(value: anValue, format: anFieldFormat)
+        let serializeAnsValueResult = try! messageSerializer.serializeField(value: ansValue, format: ansFieldFormat)
+        
         // Then
-
-        XCTAssertEqual(serializeAlphaFieldResult, alphaFieldData)
+        
+        XCTAssertEqual(serializeAValueResult, aValueData)
+        XCTAssertEqual(serializeAnValueResult, anValueData)
+        XCTAssertEqual(serializeAnsValueResult, ansValueData)
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: aValueWithWrongLength, format: aFieldFormat)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldLengthIsNotEqualToDeclaredLength(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: anValue, format: aFieldFormat)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: ansValue, format: anFieldFormat)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: anValueWithControlCharacter, format: ansFieldFormat)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
     }
     
     func testSerializeFieldBinary() {
@@ -131,6 +194,9 @@ final class ISOMessageSerializerTests: XCTestCase {
         let binaryFieldValue = "00112233445566778899aabbccddeeff"
         let binaryFieldData = Data([0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff])
         
+        let binaryFieldValueWithWrongLength = binaryFieldValue.replacingOccurrences(of: "ff", with: "")
+        let binaryFieldValueWithNotHexCharacters = binaryFieldValue.replacingOccurrences(of: "ff", with: "xy")
+        
         let fieldLength = UInt(binaryFieldData.count)
         let fieldFormat = ISOFieldFormat.binary(length: fieldLength)
         
@@ -141,6 +207,16 @@ final class ISOMessageSerializerTests: XCTestCase {
         // Then
         
         XCTAssertEqual(serializeBinaryFieldResult, binaryFieldData)
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: binaryFieldValueWithWrongLength, format: fieldFormat)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldLengthIsNotEqualToDeclaredLength(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: binaryFieldValueWithNotHexCharacters, format: fieldFormat)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
     }
     
     func testSerializeFieldNumeric() {
@@ -151,7 +227,10 @@ final class ISOMessageSerializerTests: XCTestCase {
 
         let numericFieldValue = "123"
         let numericFieldEncodedData = Data([0x01, 0x23])
-
+        
+        let numericFieldValueWithWrongLength = numericFieldValue.replacingOccurrences(of: "23", with: "")
+        let numericFieldValueWithNotNumericCharacters = numericFieldValue.replacingOccurrences(of: "23", with: "xy")
+        
         let fieldLength = UInt(numericFieldValue.count)
         let fieldFormat = ISOFieldFormat.numeric(length: fieldLength)
         
@@ -162,6 +241,16 @@ final class ISOMessageSerializerTests: XCTestCase {
         // Then
 
         XCTAssertEqual(serializeNumericFieldResult, numericFieldEncodedData)
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: numericFieldValueWithWrongLength, format: fieldFormat)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldLengthIsNotEqualToDeclaredLength(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: numericFieldValueWithNotNumericCharacters, format: fieldFormat)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
     }
     
     func testSerializeFieldLLVAR() {
@@ -177,7 +266,11 @@ final class ISOMessageSerializerTests: XCTestCase {
 
         let dataWithBCDEncodedLength = Data([bcdLength, valueData].flatMap { $0 })
         let dataWithASCIIEncodedLength = Data([asciiLength, valueData].flatMap { $0 })
-
+        
+        let valueWithControlCharacter = "LLVAR_field_value_\u{1D}"
+        let valueMoreThanMaxBCDEncodedLength = String(repeating: "x", count: 100)
+        let valueMoreThanMaxASCIIEncodedLength = String(repeating: "x", count: 100)
+        
         let fieldFormatWithBCDEncodedLength = ISOFieldFormat.llvar(lengthFormat: .bcd, valueFormat: [.a, .n, .s])
         let fieldFormatWithASCIIEncodedLength = ISOFieldFormat.llvar(lengthFormat: .ascii, valueFormat: [.a, .n, .s])
 
@@ -190,6 +283,21 @@ final class ISOMessageSerializerTests: XCTestCase {
 
         XCTAssertEqual(serializeDataWithBCDEncodedLengthResult, dataWithBCDEncodedLength)
         XCTAssertEqual(serializeDataWithASCIIEncodedLengthResult, dataWithASCIIEncodedLength)
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueWithControlCharacter, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueMoreThanMaxBCDEncodedLength, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsMoreThanMaximumLengthForDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueMoreThanMaxASCIIEncodedLength, format: fieldFormatWithASCIIEncodedLength)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsMoreThanMaximumLengthForDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
     }
 
     func testSerializeFieldLLLVAR() {
@@ -205,7 +313,11 @@ final class ISOMessageSerializerTests: XCTestCase {
 
         let dataWithBCDEncodedLength = Data([bcdLength, valueData].flatMap { $0 })
         let dataWithASCIIEncodedLength = Data([asciiLength, valueData].flatMap { $0 })
-
+        
+        let valueWithControlCharacter = "LLLVAR_field_value_\u{1D}"
+        let valueMoreThanMaxBCDEncodedLength = String(repeating: "x", count: 10_000)
+        let valueMoreThanMaxASCIIEncodedLength = String(repeating: "x", count: 1_000)
+        
         let fieldFormatWithBCDEncodedLength = ISOFieldFormat.lllvar(lengthFormat: .bcd, valueFormat: [.a, .n, .s])
         let fieldFormatWithASCIIEncodedLength = ISOFieldFormat.lllvar(lengthFormat: .ascii, valueFormat: [.a, .n, .s])
 
@@ -218,6 +330,21 @@ final class ISOMessageSerializerTests: XCTestCase {
 
         XCTAssertEqual(serializeDataWithBCDEncodedLengthResult, dataWithBCDEncodedLength)
         XCTAssertEqual(serializeDataWithASCIIEncodedLengthResult, dataWithASCIIEncodedLength)
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueWithControlCharacter, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueMoreThanMaxBCDEncodedLength, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsMoreThanMaximumLengthForDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueMoreThanMaxASCIIEncodedLength, format: fieldFormatWithASCIIEncodedLength)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsMoreThanMaximumLengthForDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
     }
 
     func testSerializeFieldLLBIN() {
@@ -233,7 +360,11 @@ final class ISOMessageSerializerTests: XCTestCase {
 
         let dataWithBCDEncodedLength = Data([bcdLength, valueData].flatMap { $0 })
         let dataWithASCIIEncodedLength = Data([asciiLength, valueData].flatMap { $0 })
-
+        
+        let valueWithNotHexCharacters = value.replacingOccurrences(of: "FF", with: "XY")
+        let valueMoreThanMaxBCDEncodedLength = String(repeating: "FF", count: 100)
+        let valueMoreThanMaxASCIIEncodedLength = String(repeating: "FF", count: 100)
+        
         let fieldFormatWithBCDEncodedLength = ISOFieldFormat.llbin(lengthFormat: .bcd)
         let fieldFormatWithASCIIEncodedLength = ISOFieldFormat.llbin(lengthFormat: .ascii)
 
@@ -246,6 +377,21 @@ final class ISOMessageSerializerTests: XCTestCase {
 
         XCTAssertEqual(serializeDataWithBCDEncodedLengthResult, dataWithBCDEncodedLength)
         XCTAssertEqual(serializeDataWithASCIIEncodedLengthResult, dataWithASCIIEncodedLength)
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueWithNotHexCharacters, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueMoreThanMaxBCDEncodedLength, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsMoreThanMaximumLengthForDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueMoreThanMaxASCIIEncodedLength, format: fieldFormatWithASCIIEncodedLength)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsMoreThanMaximumLengthForDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
     }
 
     func testSerializeFieldLLLBIN() {
@@ -261,7 +407,11 @@ final class ISOMessageSerializerTests: XCTestCase {
 
         let dataWithBCDEncodedLength = Data([bcdLength, valueData].flatMap { $0 })
         let dataWithASCIIEncodedLength = Data([asciiLength, valueData].flatMap { $0 })
-
+        
+        let valueWithNotHexCharacters = value.replacingOccurrences(of: "FF", with: "XY")
+        let valueMoreThanMaxBCDEncodedLength = String(repeating: "FF", count: 10_000)
+        let valueMoreThanMaxASCIIEncodedLength = String(repeating: "FF", count: 1_000)
+        
         let fieldFormatWithBCDEncodedLength = ISOFieldFormat.lllbin(lengthFormat: .bcd)
         let fieldFormatWithASCIIEncodedLength = ISOFieldFormat.lllbin(lengthFormat: .ascii)
 
@@ -274,6 +424,21 @@ final class ISOMessageSerializerTests: XCTestCase {
 
         XCTAssertEqual(serializeDataWithBCDEncodedLengthResult, dataWithBCDEncodedLength)
         XCTAssertEqual(serializeDataWithASCIIEncodedLengthResult, dataWithASCIIEncodedLength)
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueWithNotHexCharacters, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueMoreThanMaxBCDEncodedLength, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsMoreThanMaximumLengthForDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueMoreThanMaxASCIIEncodedLength, format: fieldFormatWithASCIIEncodedLength)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsMoreThanMaximumLengthForDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
     }
     
     func testSerializeFieldLLNUM() {
@@ -289,7 +454,11 @@ final class ISOMessageSerializerTests: XCTestCase {
 
         let dataWithBCDEncodedLength = Data([bcdLength, valueData].flatMap { $0 })
         let dataWithASCIIEncodedLength = Data([asciiLength, valueData].flatMap { $0 })
-
+        
+        let valueWithNotNumericCharacters = value.replacingOccurrences(of: "01", with: "xy")
+        let valueMoreThanMaxBCDEncodedLength = String(repeating: "99", count: 100)
+        let valueMoreThanMaxASCIIEncodedLength = String(repeating: "99", count: 100)
+        
         let fieldFormatWithBCDEncodedLength = ISOFieldFormat.llnum(lengthFormat: .bcd)
         let fieldFormatWithASCIIEncodedLength = ISOFieldFormat.llnum(lengthFormat: .ascii)
 
@@ -302,6 +471,21 @@ final class ISOMessageSerializerTests: XCTestCase {
 
         XCTAssertEqual(serializeDataWithBCDEncodedLengthResult, dataWithBCDEncodedLength)
         XCTAssertEqual(serializeDataWithASCIIEncodedLengthResult, dataWithASCIIEncodedLength)
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueWithNotNumericCharacters, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueMoreThanMaxBCDEncodedLength, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsMoreThanMaximumLengthForDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueMoreThanMaxASCIIEncodedLength, format: fieldFormatWithASCIIEncodedLength)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsMoreThanMaximumLengthForDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
     }
     
     func testSerializeFieldLLLNUM() {
@@ -317,7 +501,11 @@ final class ISOMessageSerializerTests: XCTestCase {
 
         let dataWithBCDEncodedLength = Data([bcdLength, valueData].flatMap { $0 })
         let dataWithASCIIEncodedLength = Data([asciiLength, valueData].flatMap { $0 })
-
+        
+        let valueWithNotNumericCharacters = value.replacingOccurrences(of: "01", with: "xy")
+        let valueMoreThanMaxBCDEncodedLength = String(repeating: "99", count: 10_000)
+        let valueMoreThanMaxASCIIEncodedLength = String(repeating: "99", count: 1_000)
+        
         let fieldFormatWithBCDEncodedLength = ISOFieldFormat.lllnum(lengthFormat: .bcd)
         let fieldFormatWithASCIIEncodedLength = ISOFieldFormat.lllnum(lengthFormat: .ascii)
 
@@ -330,5 +518,20 @@ final class ISOMessageSerializerTests: XCTestCase {
 
         XCTAssertEqual(serializeDataWithBCDEncodedLengthResult, dataWithBCDEncodedLength)
         XCTAssertEqual(serializeDataWithASCIIEncodedLengthResult, dataWithASCIIEncodedLength)
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueWithNotNumericCharacters, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueMoreThanMaxBCDEncodedLength, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsMoreThanMaximumLengthForDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueMoreThanMaxASCIIEncodedLength, format: fieldFormatWithASCIIEncodedLength)) { error in
+            guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.SerializeMessageFailureReason.fieldValueIsMoreThanMaximumLengthForDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
     }
 }

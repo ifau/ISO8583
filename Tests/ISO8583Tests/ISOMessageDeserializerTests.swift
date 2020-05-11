@@ -31,6 +31,9 @@ final class ISOMessageDeserializerTests: XCTestCase {
         
         let messageDeserializer = ISOMessageDeserializer()
         
+        let incorrectBCDEncodedData = Data([0x15, 0xc4, 0x02])
+        let incorrectASCIIEncodedData = "15c402".data(using: .ascii)!
+        
         let bcdEncodedData = Data([0x15, 0x44, 0x02])
         let asciiEncodedData = "154402".data(using: .ascii)!
         let value : UInt = 154402
@@ -44,6 +47,16 @@ final class ISOMessageDeserializerTests: XCTestCase {
         
         XCTAssertEqual(bcdDecodedResult, value)
         XCTAssertEqual(asciiDecodedResult, value)
+        
+        XCTAssertThrowsError(try messageDeserializer.readLength(data: incorrectBCDEncodedData, format: .bcd)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.lengthIsNotConformToDeclaredFormat(_, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readLength(data: incorrectASCIIEncodedData, format: .ascii)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.lengthIsNotConformToDeclaredFormat(_, _) = reason else { return XCTFail() }
+        }
     }
     
     func testReadMTI() {
@@ -51,6 +64,9 @@ final class ISOMessageDeserializerTests: XCTestCase {
         // Given
         
         let messageDeserializer = ISOMessageDeserializer()
+        
+        let incorrectBCDEncodedData = Data([0x08])
+        let incorrectASCIIEncodedData = "08".data(using: .ascii)!
         
         let bcdEncodedData = Data([0x08, 0x00])
         let asciiEncodedData = "0800".data(using: .ascii)!
@@ -65,6 +81,16 @@ final class ISOMessageDeserializerTests: XCTestCase {
         
         XCTAssertEqual(bcdDecodedResult, value)
         XCTAssertEqual(asciiDecodedResult, value)
+        
+        XCTAssertThrowsError(try messageDeserializer.readMTI(data: incorrectBCDEncodedData, format: .bcd)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.notEnoughDataForDecodeMTI = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readMTI(data: incorrectASCIIEncodedData, format: .ascii)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.notEnoughDataForDecodeMTI = reason else { return XCTFail() }
+        }
     }
     
     func testReadBitmap() {
@@ -80,6 +106,9 @@ final class ISOMessageDeserializerTests: XCTestCase {
         let data1 = Data([primaryBitmap, emptyBytes, emptyBytes].flatMap { $0 })
         let data2 = Data([primaryBitMapWithSecondaryBitmap, emptyBytes].flatMap { $0 })
         
+        let dataWithNotEnougthBytesForPrimaryBitmap = data1.subdata(in: Range(0...4))
+        let dataWithNotEnougthBytesForSecondaryBitmap = data2.subdata(in: Range(0...12))
+        
         // When
         
         let (bitmapFromData1, _) = try! messageDeserializer.readBitmap(data: data1)
@@ -89,6 +118,16 @@ final class ISOMessageDeserializerTests: XCTestCase {
         
         XCTAssertEqual(bitmapFromData1, primaryBitmap)
         XCTAssertEqual(bitmapFromData2, primaryBitMapWithSecondaryBitmap)
+        
+        XCTAssertThrowsError(try messageDeserializer.readBitmap(data: dataWithNotEnougthBytesForPrimaryBitmap)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.notEnoughDataForDecodePrimaryBitmap = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readBitmap(data: dataWithNotEnougthBytesForSecondaryBitmap)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.notEnoughDataForDecodeSecondaryBitmap = reason else { return XCTFail() }
+        }
     }
     
     func testReadFieldAlpha() {
@@ -97,19 +136,53 @@ final class ISOMessageDeserializerTests: XCTestCase {
         
         let messageDeserializer = ISOMessageDeserializer()
         
-        let alphaFieldValue = "alpha_field_value"
-        let alphaFieldData = alphaFieldValue.data(using: .ascii)!
+        let aValue = "alphazxc"
+        let anValue = "alpha123"
+        let ansValue = "alpha12$"
         
-        let fieldLength = UInt(alphaFieldValue.count)
-        let fieldFormat = ISOFieldFormat.alpha(length: fieldLength, valueFormat: [.a, .n, .s])
+        let aValueData = aValue.data(using: .ascii)!
+        let anValueData = anValue.data(using: .ascii)!
+        let ansValueData = ansValue.data(using: .ascii)!
+        
+        let aValueDataWithWrongLength = "alpha".data(using: .ascii)!
+        let anValueDataWithControlCharacter = "alpha12\u{1D}".data(using: .ascii)!
+        
+        let fieldLength = UInt(aValue.count)
+        let aFieldFormat = ISOFieldFormat.alpha(length: fieldLength, valueFormat: [.a])
+        let anFieldFormat = ISOFieldFormat.alpha(length: fieldLength, valueFormat: [.a, .n])
+        let ansFieldFormat = ISOFieldFormat.alpha(length: fieldLength, valueFormat: [.a, .n, .s])
         
         // When
         
-        let (readAlphaFieldResult, _) = try! messageDeserializer.readField(data: alphaFieldData, format: fieldFormat)
+        let (readAValueResult, _) = try! messageDeserializer.readField(data: aValueData, format: aFieldFormat)
+        let (readAnValueResult, _) = try! messageDeserializer.readField(data: anValueData, format: anFieldFormat)
+        let (readAnsValueResult, _) = try! messageDeserializer.readField(data: ansValueData, format: ansFieldFormat)
         
         // Then
         
-        XCTAssertEqual(readAlphaFieldResult, alphaFieldValue)
+        XCTAssertEqual(readAValueResult, aValue)
+        XCTAssertEqual(readAnValueResult, anValue)
+        XCTAssertEqual(readAnsValueResult, ansValue)
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: aValueDataWithWrongLength, format: aFieldFormat)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldLengthIsNotEqualToDeclaredLength(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: anValueData, format: aFieldFormat)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: ansValueData, format: anFieldFormat)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: anValueDataWithControlCharacter, format: ansFieldFormat)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
     }
     
     func testReadFieldBinary() {
@@ -120,6 +193,7 @@ final class ISOMessageDeserializerTests: XCTestCase {
         
         let binaryFieldValue = "00112233445566778899aabbccddeeff"
         let binaryFieldData = Data([0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff])
+        let binaryFieldDataWithWrongLength = binaryFieldData.subdata(in: Range(0...8))
         
         let fieldLength = UInt(binaryFieldData.count)
         let fieldFormat = ISOFieldFormat.binary(length: fieldLength)
@@ -131,6 +205,11 @@ final class ISOMessageDeserializerTests: XCTestCase {
         // Then
         
         XCTAssertEqual(readBinaryFieldResult.lowercased(), binaryFieldValue)
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: binaryFieldDataWithWrongLength, format: fieldFormat)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldLengthIsNotEqualToDeclaredLength(_, _, _) = reason else { return XCTFail() }
+        }
     }
 
     func testReadFieldNumeric() {
@@ -141,7 +220,10 @@ final class ISOMessageDeserializerTests: XCTestCase {
 
         let numericFieldValue = "123"
         let numericFieldEncodedData = Data([0x01, 0x23])
-
+        
+        let numericFieldDataWithWrongLength = Data([0x01])
+        let numericFieldDataWithNotNumericCharacters = Data([0x01, 0xc3])
+        
         let fieldLength = UInt(numericFieldValue.count)
         let fieldFormat = ISOFieldFormat.numeric(length: fieldLength)
         
@@ -152,6 +234,16 @@ final class ISOMessageDeserializerTests: XCTestCase {
         // Then
 
         XCTAssertEqual(readNumericFieldResult, numericFieldValue)
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: numericFieldDataWithWrongLength, format: fieldFormat)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldLengthIsNotEqualToDeclaredLength(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: numericFieldDataWithNotNumericCharacters, format: fieldFormat)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
     }
     
     func testReadFieldLLVAR() {
@@ -168,6 +260,12 @@ final class ISOMessageDeserializerTests: XCTestCase {
         let dataWithBCDEncodedLength = Data([bcdLength, valueData].flatMap { $0 })
         let dataWithASCIIEncodedLength = Data([asciiLength, valueData].flatMap { $0 })
         
+        let dataWithNotEnougthBytesForBCDLength = Data()
+        let dataWithNotEnougthBytesForASCIILength = "1".data(using: .ascii)!
+        let dataWithLessBytesForValueThanBCDEncodedLength = Data([bcdLength, Array(valueData[0...4])].flatMap { $0 })
+        let dataWithLessBytesForValueThanASCIIEncodedLength = Data([asciiLength, Array(valueData[0...4])].flatMap { $0 })
+        let dataWithControlCharacter = Data([bcdLength, [0x1D], valueData].flatMap { $0 })
+        
         let fieldFormatWithBCDEncodedLength = ISOFieldFormat.llvar(lengthFormat: .bcd, valueFormat: [.a, .n, .s])
         let fieldFormatWithASCIIEncodedLength = ISOFieldFormat.llvar(lengthFormat: .ascii, valueFormat: [.a, .n, .s])
         
@@ -180,6 +278,31 @@ final class ISOMessageDeserializerTests: XCTestCase {
         
         XCTAssertEqual(readDataWithBCDEncodedLengthResult, value)
         XCTAssertEqual(readDataWithASCIIEncodedLengthResult, value)
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithNotEnougthBytesForBCDLength, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.notEnoughDataForDecodeFieldLength(_) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithNotEnougthBytesForASCIILength, format: fieldFormatWithASCIIEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.notEnoughDataForDecodeFieldLength(_) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithLessBytesForValueThanBCDEncodedLength, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldValueIsLessThanDecodedLength(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithLessBytesForValueThanASCIIEncodedLength, format: fieldFormatWithASCIIEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldValueIsLessThanDecodedLength(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithControlCharacter, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
     }
     
     func testReadFieldLLLVAR() {
@@ -196,6 +319,12 @@ final class ISOMessageDeserializerTests: XCTestCase {
         let dataWithBCDEncodedLength = Data([bcdLength, valueData].flatMap { $0 })
         let dataWithASCIIEncodedLength = Data([asciiLength, valueData].flatMap { $0 })
         
+        let dataWithNotEnougthBytesForBCDLength = Data([0x00])
+        let dataWithNotEnougthBytesForASCIILength = "01".data(using: .ascii)!
+        let dataWithLessBytesForValueThanBCDEncodedLength = Data([bcdLength, Array(valueData[0...4])].flatMap { $0 })
+        let dataWithLessBytesForValueThanASCIIEncodedLength = Data([asciiLength, Array(valueData[0...4])].flatMap { $0 })
+        let dataWithControlCharacter = Data([bcdLength, [0x1D], valueData].flatMap { $0 })
+        
         let fieldFormatWithBCDEncodedLength = ISOFieldFormat.lllvar(lengthFormat: .bcd, valueFormat: [.a, .n, .s])
         let fieldFormatWithASCIIEncodedLength = ISOFieldFormat.lllvar(lengthFormat: .ascii, valueFormat: [.a, .n, .s])
         
@@ -208,6 +337,31 @@ final class ISOMessageDeserializerTests: XCTestCase {
         
         XCTAssertEqual(readDataWithBCDEncodedLengthResult, value)
         XCTAssertEqual(readDataWithASCIIEncodedLengthResult, value)
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithNotEnougthBytesForBCDLength, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.notEnoughDataForDecodeFieldLength(_) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithNotEnougthBytesForASCIILength, format: fieldFormatWithASCIIEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.notEnoughDataForDecodeFieldLength(_) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithLessBytesForValueThanBCDEncodedLength, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldValueIsLessThanDecodedLength(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithLessBytesForValueThanASCIIEncodedLength, format: fieldFormatWithASCIIEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldValueIsLessThanDecodedLength(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithControlCharacter, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
     }
     
     func testReadFieldLLBIN() {
@@ -224,6 +378,11 @@ final class ISOMessageDeserializerTests: XCTestCase {
         let dataWithBCDEncodedLength = Data([bcdLength, valueData].flatMap { $0 })
         let dataWithASCIIEncodedLength = Data([asciiLength, valueData].flatMap { $0 })
         
+        let dataWithNotEnougthBytesForBCDLength = Data()
+        let dataWithNotEnougthBytesForASCIILength = "1".data(using: .ascii)!
+        let dataWithLessBytesForValueThanBCDEncodedLength = Data([bcdLength, Array(valueData[0...4])].flatMap { $0 })
+        let dataWithLessBytesForValueThanASCIIEncodedLength = Data([asciiLength, Array(valueData[0...4])].flatMap { $0 })
+        
         let fieldFormatWithBCDEncodedLength = ISOFieldFormat.llbin(lengthFormat: .bcd)
         let fieldFormatWithASCIIEncodedLength = ISOFieldFormat.llbin(lengthFormat: .ascii)
         
@@ -236,6 +395,26 @@ final class ISOMessageDeserializerTests: XCTestCase {
         
         XCTAssertEqual(readDataWithBCDEncodedLengthResult.uppercased(), value)
         XCTAssertEqual(readDataWithASCIIEncodedLengthResult.uppercased(), value)
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithNotEnougthBytesForBCDLength, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.notEnoughDataForDecodeFieldLength(_) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithNotEnougthBytesForASCIILength, format: fieldFormatWithASCIIEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.notEnoughDataForDecodeFieldLength(_) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithLessBytesForValueThanBCDEncodedLength, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldValueIsLessThanDecodedLength(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithLessBytesForValueThanASCIIEncodedLength, format: fieldFormatWithASCIIEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldValueIsLessThanDecodedLength(_, _, _) = reason else { return XCTFail() }
+        }
     }
     
     func testReadFieldLLLBIN() {
@@ -252,6 +431,11 @@ final class ISOMessageDeserializerTests: XCTestCase {
         let dataWithBCDEncodedLength = Data([bcdLength, valueData].flatMap { $0 })
         let dataWithASCIIEncodedLength = Data([asciiLength, valueData].flatMap { $0 })
         
+        let dataWithNotEnougthBytesForBCDLength = Data([0x00])
+        let dataWithNotEnougthBytesForASCIILength = "01".data(using: .ascii)!
+        let dataWithLessBytesForValueThanBCDEncodedLength = Data([bcdLength, Array(valueData[0...4])].flatMap { $0 })
+        let dataWithLessBytesForValueThanASCIIEncodedLength = Data([asciiLength, Array(valueData[0...4])].flatMap { $0 })
+        
         let fieldFormatWithBCDEncodedLength = ISOFieldFormat.lllbin(lengthFormat: .bcd)
         let fieldFormatWithASCIIEncodedLength = ISOFieldFormat.lllbin(lengthFormat: .ascii)
         
@@ -264,6 +448,26 @@ final class ISOMessageDeserializerTests: XCTestCase {
         
         XCTAssertEqual(readDataWithBCDEncodedLengthResult.uppercased(), value)
         XCTAssertEqual(readDataWithASCIIEncodedLengthResult.uppercased(), value)
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithNotEnougthBytesForBCDLength, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.notEnoughDataForDecodeFieldLength(_) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithNotEnougthBytesForASCIILength, format: fieldFormatWithASCIIEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.notEnoughDataForDecodeFieldLength(_) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithLessBytesForValueThanBCDEncodedLength, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldValueIsLessThanDecodedLength(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithLessBytesForValueThanASCIIEncodedLength, format: fieldFormatWithASCIIEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldValueIsLessThanDecodedLength(_, _, _) = reason else { return XCTFail() }
+        }
     }
     
     func testReadFieldLLNUM() {
@@ -279,7 +483,13 @@ final class ISOMessageDeserializerTests: XCTestCase {
 
         let dataWithBCDEncodedLength = Data([bcdLength, valueData].flatMap { $0 })
         let dataWithASCIIEncodedLength = Data([asciiLength, valueData].flatMap { $0 })
-
+        
+        let dataWithNotEnougthBytesForBCDLength = Data()
+        let dataWithNotEnougthBytesForASCIILength = "1".data(using: .ascii)!
+        let dataWithLessBytesForValueThanBCDEncodedLength = Data([bcdLength, Array(valueData[0...4])].flatMap { $0 })
+        let dataWithLessBytesForValueThanASCIIEncodedLength = Data([asciiLength, Array(valueData[0...4])].flatMap { $0 })
+        let dataWithNotNumericCharacter = Data([bcdLength, [0xc3], valueData].flatMap { $0 })
+        
         let fieldFormatWithBCDEncodedLength = ISOFieldFormat.llnum(lengthFormat: .bcd)
         let fieldFormatWithASCIIEncodedLength = ISOFieldFormat.llnum(lengthFormat: .ascii)
 
@@ -292,6 +502,31 @@ final class ISOMessageDeserializerTests: XCTestCase {
 
         XCTAssertEqual(readDataWithBCDEncodedLengthResult, value)
         XCTAssertEqual(readDataWithASCIIEncodedLengthResult, value)
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithNotEnougthBytesForBCDLength, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.notEnoughDataForDecodeFieldLength(_) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithNotEnougthBytesForASCIILength, format: fieldFormatWithASCIIEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.notEnoughDataForDecodeFieldLength(_) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithLessBytesForValueThanBCDEncodedLength, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldValueIsLessThanDecodedLength(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithLessBytesForValueThanASCIIEncodedLength, format: fieldFormatWithASCIIEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldValueIsLessThanDecodedLength(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithNotNumericCharacter, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
     }
     
     func testReadFieldLLLNUM() {
@@ -307,7 +542,13 @@ final class ISOMessageDeserializerTests: XCTestCase {
 
         let dataWithBCDEncodedLength = Data([bcdLength, valueData].flatMap { $0 })
         let dataWithASCIIEncodedLength = Data([asciiLength, valueData].flatMap { $0 })
-
+        
+        let dataWithNotEnougthBytesForBCDLength = Data([0x00])
+        let dataWithNotEnougthBytesForASCIILength = "01".data(using: .ascii)!
+        let dataWithLessBytesForValueThanBCDEncodedLength = Data([bcdLength, Array(valueData[0...4])].flatMap { $0 })
+        let dataWithLessBytesForValueThanASCIIEncodedLength = Data([asciiLength, Array(valueData[0...4])].flatMap { $0 })
+        let dataWithNotNumericCharacter = Data([bcdLength, [0xc3], valueData].flatMap { $0 })
+        
         let fieldFormatWithBCDEncodedLength = ISOFieldFormat.lllnum(lengthFormat: .bcd)
         let fieldFormatWithASCIIEncodedLength = ISOFieldFormat.lllnum(lengthFormat: .ascii)
 
@@ -320,5 +561,30 @@ final class ISOMessageDeserializerTests: XCTestCase {
 
         XCTAssertEqual(readDataWithBCDEncodedLengthResult, value)
         XCTAssertEqual(readDataWithASCIIEncodedLengthResult, value)
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithNotEnougthBytesForBCDLength, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.notEnoughDataForDecodeFieldLength(_) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithNotEnougthBytesForASCIILength, format: fieldFormatWithASCIIEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.notEnoughDataForDecodeFieldLength(_) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithLessBytesForValueThanBCDEncodedLength, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldValueIsLessThanDecodedLength(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithLessBytesForValueThanASCIIEncodedLength, format: fieldFormatWithASCIIEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldValueIsLessThanDecodedLength(_, _, _) = reason else { return XCTFail() }
+        }
+        
+        XCTAssertThrowsError(try messageDeserializer.readField(data: dataWithNotNumericCharacter, format: fieldFormatWithBCDEncodedLength)) { error in
+            guard case ISOError.deserializeMessageFailed(let reason) = error else { return XCTFail() }
+            guard case ISOError.DeserializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
+        }
     }
 }
