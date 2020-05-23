@@ -63,7 +63,7 @@ public enum ISOError : Error {
 
 extension ISOError.SerializeMessageFailureReason {
     
-    var localizedDescription: String {
+    public var localizedDescription: String {
         switch self {
         case let .lengthIsMoreThanMaximumLengthForDeclaredFormat(maximumLength, actualLength):
             return "Length is more than declared length format can encode (maximum length: \(maximumLength), actual length: \(actualLength))"
@@ -85,7 +85,7 @@ extension ISOError.SerializeMessageFailureReason {
 
 extension ISOError.DeserializeMessageFailureReason {
     
-    var localizedDescription: String {
+    public var localizedDescription: String {
         switch self {
         case .notEnoughDataForDecodeMessageLength:
             return "Message could not be deserialized because there is not enough data (could not decode message length)"

@@ -8,14 +8,21 @@
 import Foundation
 
 public final class ISOMessage {
-
-    var mti: UInt = 0
-    var fields : [UInt:String] = [:]
     
+    /// Message type identifier
+    public var mti: UInt = 0
+    /// Message fields. Dictionary in wich key is field number, value is field value
+    public var fields : [UInt:String] = [:]
+
+    /// Initialize `ISOMessage` object with default `mti` and `fields` values
     public init() {
         
     }
     
+    /// Initialize `ISOMessage` object with provided `mti` and `fields` values
+    /// - Parameters:
+    ///   - mti: Message type identifier
+    ///   - fields: Message fields. Dictionary in wich key is field number, value is field value
     public convenience init(mti: UInt, fields: [UInt:String]) {
         self.init()
         self.mti = mti

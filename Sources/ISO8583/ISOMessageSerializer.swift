@@ -13,6 +13,12 @@ public final class ISOMessageSerializer {
         
     }
     
+    /// Serialize `ISOMessage` object into binary message according to provided scheme
+    /// - Parameters:
+    ///   - message: `ISOMessage` object for serialization
+    ///   - scheme: `ISOScheme` which describe protocol that will be used for serialize message
+    /// - Throws: `ISOError.serializeMessageFailed(reason)`, see reason for details
+    /// - Returns: Data of serialized message
     public func serialize(message: ISOMessage, scheme: ISOScheme) throws -> Data {
         
         var result = Data()

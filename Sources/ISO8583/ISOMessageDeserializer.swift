@@ -13,6 +13,12 @@ public final class ISOMessageDeserializer {
         
     }
     
+    /// Deserialize binary message according to provided scheme
+    /// - Parameters:
+    ///   - data: `Data` which contains bytes of serialized message
+    ///   - scheme: `ISOScheme` which describe protocol that will be used for deserialize message
+    /// - Throws: `ISOError.deserializeMessageFailed(reason)`, see reason for details
+    /// - Returns: Deserialized `ISOMessage` object
     public func deserialize(data: Data, scheme: ISOScheme) throws -> ISOMessage {
         
         let message = ISOMessage()

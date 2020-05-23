@@ -8,8 +8,13 @@
 import Foundation
 
 public protocol ISOScheme {
+    
+    /// - Returns: Number of bytes before message which used for specify length of message
     func numberOfBytesForLength() -> UInt
+    /// - Returns: Format of message length
     func lengthFormat() -> ISONumberFormat
+    /// - Returns: Format of message mti
     func mtiFormat() -> ISONumberFormat
+    /// - Returns: Format of specified field
     func fieldFormat(for fieldNumber: UInt) -> ISOFieldFormat
 }
