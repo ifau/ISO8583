@@ -36,9 +36,11 @@ public final class ISOMessageSerializer {
             tempData.append(field)
         }
         
-        let messageLength = try serializeLength(UInt(tempData.count), numberOfBytes: scheme.numberOfBytesForLength(), format: scheme.lengthFormat())
+        if scheme.numberOfBytesForLength() > 0 {
+            let messageLength = try serializeLength(UInt(tempData.count), numberOfBytes: scheme.numberOfBytesForLength(), format: scheme.lengthFormat())
+            result.append(messageLength)
+        }
         
-        result.append(messageLength)
         result.append(tempData)
         
         return result
