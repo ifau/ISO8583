@@ -218,11 +218,11 @@ final class ISOMessageDeserializerTests: XCTestCase {
         
         let messageDeserializer = ISOMessageDeserializer()
 
-        let numericFieldValue = "123"
-        let numericFieldEncodedData = Data([0x01, 0x23])
+        let numericFieldValue = "0123000000000000000000"
+        let numericFieldEncodedData = Data([0x01, 0x23, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
         
         let numericFieldDataWithWrongLength = Data([0x01])
-        let numericFieldDataWithNotNumericCharacters = Data([0x01, 0xc3])
+        let numericFieldDataWithNotNumericCharacters = Data([0x01, 0xc3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
         
         let fieldLength = UInt(numericFieldValue.count)
         let fieldFormat = ISOFieldFormat.numeric(length: fieldLength)

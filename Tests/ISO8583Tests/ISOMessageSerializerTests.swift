@@ -224,9 +224,9 @@ final class ISOMessageSerializerTests: XCTestCase {
         // Given
         
         let messageSerializer = ISOMessageSerializer()
-
-        let numericFieldValue = "123"
-        let numericFieldEncodedData = Data([0x01, 0x23])
+        
+        let numericFieldValue = "0123000000000000000000"
+        let numericFieldEncodedData = Data([0x01, 0x23, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
         
         let numericFieldValueWithWrongLength = numericFieldValue.replacingOccurrences(of: "23", with: "")
         let numericFieldValueWithNotNumericCharacters = numericFieldValue.replacingOccurrences(of: "23", with: "xy")

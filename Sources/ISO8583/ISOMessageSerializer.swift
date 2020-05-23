@@ -174,13 +174,15 @@ public final class ISOMessageSerializer {
             guard value.count == length else {
                 throw ISOError.serializeMessageFailed(reason: .fieldLengthIsNotEqualToDeclaredLength(fieldNumber: fieldNumber, declaredLength: length, actualLength: UInt(value.count)))
             }
-            guard value.isConfirmToFormat(.n), let numericValue = UInt(value) else {
+            guard value.isConfirmToFormat(.n) else {
                 throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: .n, actualValue: value))
             }
             
-            let numberOfBytes : UInt = (length % 2 == 1) ? ((length + 1) / 2) : (length / 2)
-            let result = try serializeLength(numericValue, numberOfBytes: numberOfBytes, format: .bcd)
-            return result
+            let chars = length % 2 == 1 ? Array("0\(value)") : Array(value)
+            let result: [UInt8] = stride(from: 0, to: chars.count, by: 2)
+                .map { UInt8(String([chars[$0], chars[$0+1]]), radix: 16) }
+                .compactMap{ $0 }
+            return Data(result)
             
         case .llvar(let lengthFormat, let valueFormat), .lllvar(let lengthFormat, let valueFormat):
             
@@ -288,12 +290,9 @@ public final class ISOMessageSerializer {
                 throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: .n, actualValue: value))
             }
             
-            var chars = Array(value)
-            if chars.count % 2 == 1 {
-                chars.insert("0", at: 0)
-            }
-            
+            let chars = value.count % 2 == 1 ? Array("0\(value)") : Array(value)
             let numberOfBytesForValue = chars.count / 2
+            
             guard numberOfBytesForValue <= maximumNumberOfBytesForValue else {
                 throw ISOError.serializeMessageFailed(reason: .fieldValueIsMoreThanMaximumLengthForDeclaredFormat(fieldNumber: fieldNumber, maximumLength: UInt(maximumNumberOfBytesForValue), actualLength: UInt(numberOfBytesForValue)))
             }
