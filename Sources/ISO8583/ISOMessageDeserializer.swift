@@ -180,7 +180,7 @@ public final class ISOMessageDeserializer {
             }
             let value = data.subdata(in: Range(0...Int(length - 1)))
             let hexString = value.map { String(format: "%02X", $0) }.joined()
-            let restData = data.count > length ? data.subdata(in: Range(Int(length)...data.count)) : Data()
+            let restData = data.count > length ? data.subdata(in: Range(Int(length)...data.count - 1)) : Data()
             return (hexString, restData)
         
         case .numeric(let length):

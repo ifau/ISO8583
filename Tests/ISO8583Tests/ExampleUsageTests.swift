@@ -17,27 +17,52 @@ final class ExampleUsageTests: XCTestCase {
     func testUsage() {
         
         var fields : [UInt : String] = [:]
-        fields[2]  = "4000010000000001"
         fields[3]  = "000000"
         fields[4]  = "000000010000"
         fields[7]  = "0101120000"
         fields[11] = "000001"
-        fields[22] = "020"
+        fields[22] = "021"
         fields[24] = "200"
         fields[25] = "00"
         fields[35] = "4000010000000001=991233000123410000"
         fields[41] = "12345678"
         fields[49] = "643"
-        fields[64] = "AAFFAAFFAAFFAAFF"
+        fields[52] = "AABBCCDDEEFFFFFF"
         
         let originalMessage : ISOMessage = ISOMessage(mti: 200, fields: fields)
-        let serializedData  : Data = try! ISOMessageSerializer().serialize(message: originalMessage, scheme: SampleProcessingScheme())
         
-        // print(serializedData.map { String(format: "%02X", $0) }.joined())
-        // 0095020072200580208080011640000100000000010000000000000100000101120000000001002002000035343030303031303030303030303030313D39393132333330303031323334313030303031323334353637380643AAFFAAFFAAFFAAFF
+        let serializedSampleData : Data = try! ISOMessageSerializer().serialize(message: originalMessage, scheme: SampleProcessingScheme())
+        let deserializedSampleMessage : ISOMessage = try! ISOMessageDeserializer().deserialize(data: serializedSampleData, scheme: SampleProcessingScheme())
+        XCTAssertEqual(deserializedSampleMessage, originalMessage)
         
-        let deserializedMessage : ISOMessage = try! ISOMessageDeserializer().deserialize(data: serializedData, scheme: SampleProcessingScheme())
-        XCTAssertEqual(deserializedMessage, originalMessage)
+        /*
+        let hexdump = { (data: Data) -> String in
+            
+            let inputPipe = Pipe()
+            let outputPipe = Pipe()
+            let hexdump = Process()
+            hexdump.launchPath = "/usr/bin/hexdump"
+            hexdump.arguments = ["-C"]
+            hexdump.standardInput = inputPipe
+            hexdump.standardOutput = outputPipe
+            hexdump.launch()
+            
+            inputPipe.fileHandleForWriting.write(data)
+            inputPipe.fileHandleForWriting.closeFile()
+            let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
+            let output = String(data: data, encoding: .utf8)
+            return output ?? ""
+        }
+        
+        print(hexdump(serializedSampleData))
+        
+        00000000  00 86 02 00 32 20 05 80  20 80 90 00 00 00 00 00  |....2 .. .......|
+        00000010  00 00 01 00 00 01 01 12  00 00 00 00 01 00 21 02  |..............!.|
+        00000020  00 00 35 34 30 30 30 30  31 30 30 30 30 30 30 30  |..54000010000000|
+        00000030  30 30 31 3d 39 39 31 32  33 33 30 30 30 31 32 33  |001=991233000123|
+        00000040  34 31 30 30 30 30 31 32  33 34 35 36 37 38 06 43  |41000012345678.C|
+        00000050  aa bb cc dd ee ff ff ff                           |........|
+        */
     }
 }
 
