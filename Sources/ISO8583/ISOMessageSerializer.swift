@@ -193,14 +193,14 @@ public final class ISOMessageSerializer {
             switch lengthFormat {
             case .bcd:
                 numberOfBytesForLength = 1
-                if case .lllvar(_) = format {
+                if case .lllvar(_, _) = format {
                     numberOfBytesForLength = 2
                 }
                 /// 99 for 1 byte, 9999 for 2 bytes
                 maximumNumberOfBytesForValue = Int(pow(Double(10), Double(2*numberOfBytesForLength))) - 1
             case .ascii:
                 numberOfBytesForLength = 2
-                if case .lllvar(_) = format {
+                if case .lllvar(_, _) = format {
                     numberOfBytesForLength = 3
                 }
                 /// 99 for 2 bytes, 999 for 3 bytes

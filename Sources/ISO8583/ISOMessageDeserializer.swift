@@ -215,12 +215,12 @@ public final class ISOMessageDeserializer {
             switch lengthFormat {
             case .bcd:
                 lengthLength = 1
-                if case .lllvar(_) = format {
+                if case .lllvar(_, _) = format {
                     lengthLength = 2
                 }
             case .ascii:
                 lengthLength = 2
-                if case .lllvar(_) = format {
+                if case .lllvar(_, _) = format {
                     lengthLength = 3
                 }
             }
