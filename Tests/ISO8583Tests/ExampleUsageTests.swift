@@ -39,6 +39,10 @@ final class ExampleUsageTests: XCTestCase {
         let deserializedSmartVistaMessage : ISOMessage = try! ISOMessageDeserializer().deserialize(data: serializedSmartVistaData, scheme: SmartVistaScheme())
         XCTAssertEqual(deserializedSmartVistaMessage, originalMessage)
         
+        let serializedOpenWayData : Data = try! ISOMessageSerializer().serialize(message: originalMessage, scheme: OpenWayScheme())
+        let deserializedOpenWayMessage : ISOMessage = try! ISOMessageDeserializer().deserialize(data: serializedOpenWayData, scheme: OpenWayScheme())
+        XCTAssertEqual(deserializedOpenWayMessage, originalMessage)
+        
         /*
         let hexdump = { (data: Data) -> String in
             
@@ -77,6 +81,15 @@ final class ExampleUsageTests: XCTestCase {
         00000050  32 33 33 30 30 30 31 32  33 34 31 30 30 30 30 31  |2330001234100001|
         00000060  32 33 34 35 36 37 38 06  43 aa bb cc dd ee ff ff  |2345678.C.......|
         00000070  ff                                                |.|
+        
+        print(hexdump(serializedOpenWayData))
+        
+        00000000  00 86 02 00 32 20 05 80  20 80 90 00 00 00 00 00  |....2 .. .......|
+        00000010  00 00 01 00 00 01 01 12  00 00 00 00 01 00 21 02  |..............!.|
+        00000020  00 00 35 34 30 30 30 30  31 30 30 30 30 30 30 30  |..54000010000000|
+        00000030  30 30 31 3d 39 39 31 32  33 33 30 30 30 31 32 33  |001=991233000123|
+        00000040  34 31 30 30 30 30 31 32  33 34 35 36 37 38 06 43  |41000012345678.C|
+        00000050  aa bb cc dd ee ff ff ff                           |........|
         */
     }
 }
@@ -129,6 +142,80 @@ class SmartVistaScheme: ISOScheme {
         case 55: return .lllbin(lengthFormat: .bcd)                         // EMV Data
         case 62: return .llvar(lengthFormat: .ascii, valueFormat: [.a, .n]) // Customer Defined Response
         case 64: return .binary(length: 8)                                  // MAC
+        default:
+            return .undefined
+        }
+    }
+}
+
+/// OpenWay Processing Scheme
+/// Source: https://github.com/juks/iso-8583-socket-queue/blob/master/lib/iso8583/lib/packager/openWay.js
+class OpenWayScheme: ISOScheme {
+    func numberOfBytesForLength() -> UInt {
+        return 2
+    }
+
+    func lengthFormat() -> ISONumberFormat {
+        return .bcd
+    }
+
+    func mtiFormat() -> ISONumberFormat {
+        return .bcd
+    }
+
+    func fieldFormat(for fieldNumber: UInt) -> ISOFieldFormat {
+        switch fieldNumber {
+        case 2: return .llnum(lengthFormat: .bcd)                             // Primary Account Number
+        case 3: return .numeric(length: 6)                                    // Processing Code
+        case 4: return .numeric(length: 12)                                   // Amount, Transaction
+        case 5: return .numeric(length: 12)                                   // Amount, Settlement
+        case 6: return .numeric(length: 12)                                   // Amount, Cardholder Billing
+        case 7: return .numeric(length: 10)                                   // Transmission Date and Time
+        case 8: return .numeric(length: 8)                                    // Amount, Cardholder Billing Fee
+        case 9: return .numeric(length: 8)                                    // Conversion Rate, Settlement
+        case 10: return .numeric(length: 8)                                   // Conversion Rate, Cardholder Billing
+        case 11: return .numeric(length: 6)                                   // System Trace Audit Number
+        case 12: return .numeric(length: 12)                                  // Processing Time
+        case 13: return .numeric(length: 4)                                   // Processing Date
+        case 14: return .numeric(length: 4)                                   // Date, Expiration
+        case 22: return .numeric(length: 3)                                   // Pos Entry Mode
+        case 23: return .numeric(length: 3)                                   // Card Sequence Number
+        case 24: return .numeric(length: 3)                                   // Function Code
+        case 25: return .numeric(length: 2)                                   // Pos Condition Code
+        case 31: return .llbin(lengthFormat: .bcd)                            // Security Additional Data – private
+        case 32: return .llnum(lengthFormat: .bcd)                            // Acquiring Institution ID
+        case 33: return .llnum(lengthFormat: .bcd)                            // Forwarding Institution ID
+        case 34: return .llvar(lengthFormat: .bcd, valueFormat: [.z])         // PAN extended
+        case 35: return .llvar(lengthFormat: .bcd, valueFormat: [.z])         // Track 2 Data
+        case 36: return .llvar(lengthFormat: .bcd, valueFormat: [.z])         // Track 3 Data
+        case 37: return .alpha(length: 12, valueFormat: [.a, .n, .s])         // Retrieval Reference Number
+        case 38: return .alpha(length: 6, valueFormat: [.a, .n, .s])          // Authorisation Identification Response
+        case 39: return .alpha(length: 3, valueFormat: [.n])                  // Response code
+        case 40: return .numeric(length: 1)                                   // Service Restriction Code
+        case 41: return .alpha(length: 8, valueFormat: [.a, .n, .s])          // Card Acceptor Terminal Identification
+        case 42: return .alpha(length: 15, valueFormat: [.a, .n, .s])         // Card Acceptor ID
+        case 43: return .alpha(length: 40, valueFormat: [.a, .n, .s])         // Card Acceptor Name
+        case 44: return .llvar(lengthFormat: .bcd, valueFormat: [.a, .n, .s]) // Additional Response Data
+        case 45: return .llvar(lengthFormat: .bcd, valueFormat: [.z])         // Track 1 Data
+        case 46: return .lllvar(lengthFormat: .bcd, valueFormat: [.a, .n])    // Amount, Fees
+        case 47: return .lllvar(lengthFormat: .bcd, valueFormat: [.a, .n])    // Additional Data
+        case 48: return .lllvar(lengthFormat: .bcd, valueFormat: [.a, .n])    // Additional Data
+        case 49: return .numeric(length: 3)                                   // Currency Code, Transaction
+        case 50: return .numeric(length: 3)                                   // Currency Code, Settlement
+        case 51: return .numeric(length: 3)                                   // Currency Code, Cardholder billing
+        case 52: return .binary(length: 8)                                    // Personal Identification Data
+        case 53: return .binary(length: 8)                                    // Security Related Control Information
+        case 54: return .lllvar(lengthFormat: .bcd, valueFormat: [.a, .n])    // Additional amounts
+        case 55: return .lllbin(lengthFormat: .bcd)                           // EMV Data
+        case 56: return .llbin(lengthFormat: .bcd)                            // Original Data Elements
+        case 57: return .numeric(length: 2)                                   // Authorisation Life Cycle Code
+        case 58: return .llnum(lengthFormat: .bcd)                            // Authorizing Agent Institution ID
+        case 59: return .llvar(lengthFormat: .bcd, valueFormat: [.a, .n])     // Additional Data
+        case 60: return .llvar(lengthFormat: .bcd, valueFormat: [.a, .n])     // Original Data Elements
+        case 61: return .llvar(lengthFormat: .bcd, valueFormat: [.a, .n])     // Reserved
+        case 62: return .llvar(lengthFormat: .bcd, valueFormat: [.a, .n])     // Reserved
+        case 63: return .llvar(lengthFormat: .bcd, valueFormat: [.a, .n])     // Additional Data
+        case 64: return .binary(length: 4)                                    // MAC
         default:
             return .undefined
         }
