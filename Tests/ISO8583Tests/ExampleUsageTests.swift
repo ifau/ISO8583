@@ -35,6 +35,10 @@ final class ExampleUsageTests: XCTestCase {
         let deserializedSampleMessage : ISOMessage = try! ISOMessageDeserializer().deserialize(data: serializedSampleData, scheme: SampleProcessingScheme())
         XCTAssertEqual(deserializedSampleMessage, originalMessage)
         
+        let serializedSmartVistaData : Data = try! ISOMessageSerializer().serialize(message: originalMessage, scheme: SmartVistaScheme())
+        let deserializedSmartVistaMessage : ISOMessage = try! ISOMessageDeserializer().deserialize(data: serializedSmartVistaData, scheme: SmartVistaScheme())
+        XCTAssertEqual(deserializedSmartVistaMessage, originalMessage)
+        
         /*
         let hexdump = { (data: Data) -> String in
             
@@ -62,7 +66,72 @@ final class ExampleUsageTests: XCTestCase {
         00000030  30 30 31 3d 39 39 31 32  33 33 30 30 30 31 32 33  |001=991233000123|
         00000040  34 31 30 30 30 30 31 32  33 34 35 36 37 38 06 43  |41000012345678.C|
         00000050  aa bb cc dd ee ff ff ff                           |........|
+        
+        print(hexdump(serializedSmartVistaData))
+        
+        00000000  30 31 30 39 30 32 30 30  32 20 05 80 20 80 90 00  |010902002 .. ...|
+        00000010  30 30 30 30 30 30 30 30  30 30 30 30 30 31 30 30  |0000000000000100|
+        00000020  30 30 30 31 30 31 31 32  30 30 30 30 30 30 30 30  |0001011200000000|
+        00000030  30 31 30 32 31 32 30 30  30 30 33 35 34 30 30 30  |0102120000354000|
+        00000040  30 31 30 30 30 30 30 30  30 30 30 31 3d 39 39 31  |010000000001=991|
+        00000050  32 33 33 30 30 30 31 32  33 34 31 30 30 30 30 31  |2330001234100001|
+        00000060  32 33 34 35 36 37 38 06  43 aa bb cc dd ee ff ff  |2345678.C.......|
+        00000070  ff                                                |.|
         */
+    }
+}
+
+/// SmartVista Processing Scheme
+/// Source: https://github.com/juks/iso-8583-socket-queue/blob/master/lib/iso8583/lib/packager/smartVista.js
+class SmartVistaScheme: ISOScheme {
+    func numberOfBytesForLength() -> UInt {
+        return 4
+    }
+
+    func lengthFormat() -> ISONumberFormat {
+        return .ascii
+    }
+
+    func mtiFormat() -> ISONumberFormat {
+        return .ascii
+    }
+
+    func fieldFormat(for fieldNumber: UInt) -> ISOFieldFormat {
+        switch fieldNumber {
+        case 2: return .llvar(lengthFormat: .ascii, valueFormat: [.n])      // Primary Account Number
+        case 3: return .alpha(length: 6, valueFormat: [.n])                 // Processing Code
+        case 4: return .alpha(length: 12, valueFormat: [.n])                // Amount, Transaction
+        case 5: return .alpha(length: 12, valueFormat: [.n])                // Amount, Settlement
+        case 6: return .alpha(length: 12, valueFormat: [.n])                // Amount, Cardholder Billing
+        case 7: return .alpha(length: 10, valueFormat: [.n])                // Transmission Date and Time
+        case 8: return .alpha(length: 8, valueFormat: [.n])                 // Amount, Cardholder Billing Fee
+        case 9: return .alpha(length: 8, valueFormat: [.n])                 // Conversion Rate, Settlement
+        case 10: return .alpha(length: 8, valueFormat: [.n])                // Conversion Rate, Cardholder Billing
+        case 11: return .alpha(length: 6, valueFormat: [.n])                // System Trace Audit Number
+        case 12: return .alpha(length: 12, valueFormat: [.n])               // Time, Local Transaction
+        case 13: return .alpha(length: 4, valueFormat: [.n])                // Date, Local Transaction
+        case 14: return .alpha(length: 6, valueFormat: [.n])                // Date, Expiration
+        case 15: return .alpha(length: 4, valueFormat: [.n])                // Date, Settlement
+        case 22: return .alpha(length: 3, valueFormat: [.n])                // Pos Entry Mode
+        case 24: return .alpha(length: 3, valueFormat: [.n])                // Function Code
+        case 25: return .alpha(length: 2, valueFormat: [.n])                // Pos Condition Code
+        case 32: return .llvar(lengthFormat: .ascii, valueFormat: [.n])     // Acquiring Institution Ident Code
+        case 35: return .llvar(lengthFormat: .ascii, valueFormat: [.z])     // Track 2 Data
+        case 37: return .alpha(length: 12, valueFormat: [.a, .n, .s])       // Retrieval Reference Number
+        case 38: return .alpha(length: 6, valueFormat: [.a, .n, .s])        // Approval code
+        case 39: return .alpha(length: 3, valueFormat: [.n])                // Response code
+        case 41: return .alpha(length: 8, valueFormat: [.n])                // Card Acceptor Terminal Identification
+        case 42: return .alpha(length: 15, valueFormat: [.a, .n, .s])       // Merchant Id
+        case 46: return .llvar(lengthFormat: .ascii, valueFormat: [.a, .n]) // Amount, Fees
+        case 49: return .numeric(length: 3)                                 // Currency code, transaction
+        case 52: return .binary(length: 8)                                  // Personal Identification Data
+        case 54: return .llvar(lengthFormat: .ascii, valueFormat: [.a, .n]) // Additional amounts
+        case 55: return .lllbin(lengthFormat: .bcd)                         // EMV Data
+        case 62: return .llvar(lengthFormat: .ascii, valueFormat: [.a, .n]) // Customer Defined Response
+        case 64: return .binary(length: 8)                                  // MAC
+        default:
+            return .undefined
+        }
     }
 }
 
