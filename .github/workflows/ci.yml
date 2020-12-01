@@ -17,7 +17,7 @@ jobs:
         os: [macos-latest, ubuntu-latest]
         swift: ["5.0.0"]
     steps:
-    - uses: fwal/setup-swift@master
+    - uses: fwal/setup-swift@v1
       with:
         swift-version: ${{ matrix.swift }}
     - uses: actions/checkout@v2
