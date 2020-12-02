@@ -183,7 +183,7 @@ public final class ISOMessageDeserializer {
             let restData = data.count > length ? data.subdata(in: Range(Int(length)...data.count - 1)) : Data()
             return (hexString, restData)
         
-        case .numeric(let length):
+        case .numeric(let length, let padding):
             
             guard length > 0 else {
                 return ("", data)
@@ -197,7 +197,12 @@ public final class ISOMessageDeserializer {
             
             var value = data.subdata(in: Range(0...Int(numberOfBytesToRead - 1))).map { String(format: "%02X", $0) }.joined()
             if value.count > length {
-                value.removeFirst()
+                switch padding {
+                case .left:
+                    value.removeFirst()
+                case .right:
+                    value.removeLast()
+                }
             }
             
             guard value.isConfirmToFormat(.n) else {
@@ -286,7 +291,7 @@ public final class ISOMessageDeserializer {
             let restData = data.count > lengthLength + valueLength ? data.subdata(in: Range((lengthLength + valueLength)...data.count - 1)) : Data()
             return (hexString, restData)
             
-        case .llnum(let lengthFormat), .lllnum(let lengthFormat):
+        case .llnum(let lengthFormat, let padding), .lllnum(let lengthFormat, let padding):
             
             var lengthLength = 0
             var valueLength = 0
@@ -294,12 +299,12 @@ public final class ISOMessageDeserializer {
             switch lengthFormat {
             case .bcd:
                 lengthLength = 1
-                if case .lllnum(_) = format {
+                if case .lllnum(_,_) = format {
                     lengthLength = 2
                 }
             case .ascii:
                 lengthLength = 2
-                if case .lllnum(_) = format {
+                if case .lllnum(_,_) = format {
                     lengthLength = 3
                 }
             }
@@ -327,7 +332,12 @@ public final class ISOMessageDeserializer {
             var value = data.subdata(in: Range(lengthLength...lengthLength + numberOfBytesForValue - 1)).map { String(format: "%02X", $0) }.joined()
             
             if valueLength < value.count {
-                value.removeFirst()
+                switch padding {
+                case .left:
+                    value.removeFirst()
+                case .right:
+                    value.removeLast()
+                }
             }
             
             guard value.isConfirmToFormat(.n) else {

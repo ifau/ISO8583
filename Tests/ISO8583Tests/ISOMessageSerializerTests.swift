@@ -225,29 +225,33 @@ final class ISOMessageSerializerTests: XCTestCase {
         
         let messageSerializer = ISOMessageSerializer()
         
-        let numericFieldValue = "0123000000000000000000"
-        let numericFieldEncodedData = Data([0x01, 0x23, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+        let numericFieldValue = "123000000000000000000"
+        let numericFieldWithLeftPaddingEncodedData = Data([0x01, 0x23, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+        let numericFieldWithRightPaddingEncodedData = Data([0x12, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
         
         let numericFieldValueWithWrongLength = numericFieldValue.replacingOccurrences(of: "23", with: "")
         let numericFieldValueWithNotNumericCharacters = numericFieldValue.replacingOccurrences(of: "23", with: "xy")
         
         let fieldLength = UInt(numericFieldValue.count)
-        let fieldFormat = ISOFieldFormat.numeric(length: fieldLength)
+        let fieldFormatWithLeftPadding = ISOFieldFormat.numeric(length: fieldLength, paddingFormat: .left)
+        let fieldFormatWithRightPadding = ISOFieldFormat.numeric(length: fieldLength, paddingFormat: .right)
         
         // When
 
-        let serializeNumericFieldResult = try! messageSerializer.serializeField(value: numericFieldValue, format: fieldFormat)
+        let serializeNumericFieldWithLeftPaddingResult = try! messageSerializer.serializeField(value: numericFieldValue, format: fieldFormatWithLeftPadding)
+        let serializeNumericFieldWithRightPaddingResult = try! messageSerializer.serializeField(value: numericFieldValue, format: fieldFormatWithRightPadding)
         
         // Then
 
-        XCTAssertEqual(serializeNumericFieldResult, numericFieldEncodedData)
+        XCTAssertEqual(serializeNumericFieldWithLeftPaddingResult, numericFieldWithLeftPaddingEncodedData)
+        XCTAssertEqual(serializeNumericFieldWithRightPaddingResult, numericFieldWithRightPaddingEncodedData)
         
-        XCTAssertThrowsError(try messageSerializer.serializeField(value: numericFieldValueWithWrongLength, format: fieldFormat)) { error in
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: numericFieldValueWithWrongLength, format: fieldFormatWithLeftPadding)) { error in
             guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
             guard case ISOError.SerializeMessageFailureReason.fieldLengthIsNotEqualToDeclaredLength(_, _, _) = reason else { return XCTFail() }
         }
         
-        XCTAssertThrowsError(try messageSerializer.serializeField(value: numericFieldValueWithNotNumericCharacters, format: fieldFormat)) { error in
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: numericFieldValueWithNotNumericCharacters, format: fieldFormatWithLeftPadding)) { error in
             guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
             guard case ISOError.SerializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
         }
@@ -447,42 +451,51 @@ final class ISOMessageSerializerTests: XCTestCase {
 
         let messageSerializer = ISOMessageSerializer()
 
-        let value = "012345678901234567"
-        let valueData : [UInt8] = [0x01, 0x23, 0x45, 0x67, 0x89, 0x01, 0x23, 0x45, 0x67]
-        let bcdLength : [UInt8] = [0x18]
-        let asciiLength : [UInt8] = Array("18".utf8)
+        let value = "12345678901234567"
+        let leftPaddingEncodedData  : [UInt8] = [0x01, 0x23, 0x45, 0x67, 0x89, 0x01, 0x23, 0x45, 0x67]
+        let rightPaddingEncodedData : [UInt8] = [0x12, 0x34, 0x56, 0x78, 0x90, 0x12, 0x34, 0x56, 0x70]
+        let bcdLength : [UInt8] = [0x17]
+        let asciiLength : [UInt8] = Array("17".utf8)
 
-        let dataWithBCDEncodedLength = Data([bcdLength, valueData].flatMap { $0 })
-        let dataWithASCIIEncodedLength = Data([asciiLength, valueData].flatMap { $0 })
+        let dataWithBCDEncodedLengthAndLeftPadding = Data([bcdLength, leftPaddingEncodedData].flatMap { $0 })
+        let dataWithBCDEncodedLengthAndRightPadding = Data([bcdLength, rightPaddingEncodedData].flatMap { $0 })
+        let dataWithASCIIEncodedLengthAndLeftPadding = Data([asciiLength, leftPaddingEncodedData].flatMap { $0 })
+        let dataWithASCIIEncodedLengthAndRightPadding = Data([asciiLength, rightPaddingEncodedData].flatMap { $0 })
         
         let valueWithNotNumericCharacters = value.replacingOccurrences(of: "01", with: "xy")
         let valueMoreThanMaxBCDEncodedLength = String(repeating: "99", count: 100)
         let valueMoreThanMaxASCIIEncodedLength = String(repeating: "99", count: 100)
         
-        let fieldFormatWithBCDEncodedLength = ISOFieldFormat.llnum(lengthFormat: .bcd)
-        let fieldFormatWithASCIIEncodedLength = ISOFieldFormat.llnum(lengthFormat: .ascii)
-
+        let fieldFormatWithBCDEncodedLengthAndLeftPadding = ISOFieldFormat.llnum(lengthFormat: .bcd, paddingFormat: .left)
+        let fieldFormatWithBCDEncodedLengthAndRightPadding = ISOFieldFormat.llnum(lengthFormat: .bcd, paddingFormat: .right)
+        let fieldFormatWithASCIIEncodedLengthAndLeftPadding = ISOFieldFormat.llnum(lengthFormat: .ascii, paddingFormat: .left)
+        let fieldFormatWithASCIIEncodedLengthAndRightPadding = ISOFieldFormat.llnum(lengthFormat: .ascii, paddingFormat: .right)
+        
         // When
 
-        let serializeDataWithBCDEncodedLengthResult = try! messageSerializer.serializeField(value: value, format: fieldFormatWithBCDEncodedLength)
-        let serializeDataWithASCIIEncodedLengthResult = try! messageSerializer.serializeField(value: value, format: fieldFormatWithASCIIEncodedLength)
+        let serializeDataWithBCDEncodedLengthAndLeftPaddingResult = try! messageSerializer.serializeField(value: value, format: fieldFormatWithBCDEncodedLengthAndLeftPadding)
+        let serializeDataWithBCDEncodedLengthAndRightPaddingResult = try! messageSerializer.serializeField(value: value, format: fieldFormatWithBCDEncodedLengthAndRightPadding)
+        let serializeDataWithASCIIEncodedLengthAndLeftPaddingResult = try! messageSerializer.serializeField(value: value, format: fieldFormatWithASCIIEncodedLengthAndLeftPadding)
+        let serializeDataWithASCIIEncodedLengthAndRightPaddingResult = try! messageSerializer.serializeField(value: value, format: fieldFormatWithASCIIEncodedLengthAndRightPadding)
 
         // Then
 
-        XCTAssertEqual(serializeDataWithBCDEncodedLengthResult, dataWithBCDEncodedLength)
-        XCTAssertEqual(serializeDataWithASCIIEncodedLengthResult, dataWithASCIIEncodedLength)
+        XCTAssertEqual(serializeDataWithBCDEncodedLengthAndLeftPaddingResult, dataWithBCDEncodedLengthAndLeftPadding)
+        XCTAssertEqual(serializeDataWithBCDEncodedLengthAndRightPaddingResult, dataWithBCDEncodedLengthAndRightPadding)
+        XCTAssertEqual(serializeDataWithASCIIEncodedLengthAndLeftPaddingResult, dataWithASCIIEncodedLengthAndLeftPadding)
+        XCTAssertEqual(serializeDataWithASCIIEncodedLengthAndRightPaddingResult, dataWithASCIIEncodedLengthAndRightPadding)
         
-        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueWithNotNumericCharacters, format: fieldFormatWithBCDEncodedLength)) { error in
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueWithNotNumericCharacters, format: fieldFormatWithBCDEncodedLengthAndLeftPadding)) { error in
             guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
             guard case ISOError.SerializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
         }
         
-        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueMoreThanMaxBCDEncodedLength, format: fieldFormatWithBCDEncodedLength)) { error in
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueMoreThanMaxBCDEncodedLength, format: fieldFormatWithBCDEncodedLengthAndLeftPadding)) { error in
             guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
             guard case ISOError.SerializeMessageFailureReason.fieldValueIsMoreThanMaximumLengthForDeclaredFormat(_, _, _) = reason else { return XCTFail() }
         }
         
-        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueMoreThanMaxASCIIEncodedLength, format: fieldFormatWithASCIIEncodedLength)) { error in
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueMoreThanMaxASCIIEncodedLength, format: fieldFormatWithASCIIEncodedLengthAndLeftPadding)) { error in
             guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
             guard case ISOError.SerializeMessageFailureReason.fieldValueIsMoreThanMaximumLengthForDeclaredFormat(_, _, _) = reason else { return XCTFail() }
         }
@@ -494,42 +507,51 @@ final class ISOMessageSerializerTests: XCTestCase {
 
         let messageSerializer = ISOMessageSerializer()
 
-        let value = "012345678901234567"
-        let valueData : [UInt8] = [0x01, 0x23, 0x45, 0x67, 0x89, 0x01, 0x23, 0x45, 0x67]
-        let bcdLength : [UInt8] = [0x00, 0x18]
-        let asciiLength : [UInt8] = Array("018".utf8)
+        let value = "12345678901234567"
+        let leftPaddingEncodedData  : [UInt8] = [0x01, 0x23, 0x45, 0x67, 0x89, 0x01, 0x23, 0x45, 0x67]
+        let rightPaddingEncodedData : [UInt8] = [0x12, 0x34, 0x56, 0x78, 0x90, 0x12, 0x34, 0x56, 0x70]
+        let bcdLength : [UInt8] = [0x00, 0x17]
+        let asciiLength : [UInt8] = Array("017".utf8)
 
-        let dataWithBCDEncodedLength = Data([bcdLength, valueData].flatMap { $0 })
-        let dataWithASCIIEncodedLength = Data([asciiLength, valueData].flatMap { $0 })
+        let dataWithBCDEncodedLengthAndLeftPadding = Data([bcdLength, leftPaddingEncodedData].flatMap { $0 })
+        let dataWithBCDEncodedLengthAndRightPadding = Data([bcdLength, rightPaddingEncodedData].flatMap { $0 })
+        let dataWithASCIIEncodedLengthAndLeftPadding = Data([asciiLength, leftPaddingEncodedData].flatMap { $0 })
+        let dataWithASCIIEncodedLengthAndRightPadding = Data([asciiLength, rightPaddingEncodedData].flatMap { $0 })
         
         let valueWithNotNumericCharacters = value.replacingOccurrences(of: "01", with: "xy")
         let valueMoreThanMaxBCDEncodedLength = String(repeating: "99", count: 10_000)
         let valueMoreThanMaxASCIIEncodedLength = String(repeating: "99", count: 1_000)
         
-        let fieldFormatWithBCDEncodedLength = ISOFieldFormat.lllnum(lengthFormat: .bcd)
-        let fieldFormatWithASCIIEncodedLength = ISOFieldFormat.lllnum(lengthFormat: .ascii)
-
+        let fieldFormatWithBCDEncodedLengthAndLeftPadding = ISOFieldFormat.lllnum(lengthFormat: .bcd, paddingFormat: .left)
+        let fieldFormatWithBCDEncodedLengthAndRightPadding = ISOFieldFormat.lllnum(lengthFormat: .bcd, paddingFormat: .right)
+        let fieldFormatWithASCIIEncodedLengthAndLeftPadding = ISOFieldFormat.lllnum(lengthFormat: .ascii, paddingFormat: .left)
+        let fieldFormatWithASCIIEncodedLengthAndRightPadding = ISOFieldFormat.lllnum(lengthFormat: .ascii, paddingFormat: .right)
+        
         // When
 
-        let serializeDataWithBCDEncodedLengthResult = try! messageSerializer.serializeField(value: value, format: fieldFormatWithBCDEncodedLength)
-        let serializeDataWithASCIIEncodedLengthResult = try! messageSerializer.serializeField(value: value, format: fieldFormatWithASCIIEncodedLength)
+        let serializeDataWithBCDEncodedLengthAndLeftPaddingResult = try! messageSerializer.serializeField(value: value, format: fieldFormatWithBCDEncodedLengthAndLeftPadding)
+        let serializeDataWithBCDEncodedLengthAndRightPaddingResult = try! messageSerializer.serializeField(value: value, format: fieldFormatWithBCDEncodedLengthAndRightPadding)
+        let serializeDataWithASCIIEncodedLengthAndLeftPaddingResult = try! messageSerializer.serializeField(value: value, format: fieldFormatWithASCIIEncodedLengthAndLeftPadding)
+        let serializeDataWithASCIIEncodedLengthAndRightPaddingResult = try! messageSerializer.serializeField(value: value, format: fieldFormatWithASCIIEncodedLengthAndRightPadding)
 
         // Then
 
-        XCTAssertEqual(serializeDataWithBCDEncodedLengthResult, dataWithBCDEncodedLength)
-        XCTAssertEqual(serializeDataWithASCIIEncodedLengthResult, dataWithASCIIEncodedLength)
+        XCTAssertEqual(serializeDataWithBCDEncodedLengthAndLeftPaddingResult, dataWithBCDEncodedLengthAndLeftPadding)
+        XCTAssertEqual(serializeDataWithBCDEncodedLengthAndRightPaddingResult, dataWithBCDEncodedLengthAndRightPadding)
+        XCTAssertEqual(serializeDataWithASCIIEncodedLengthAndLeftPaddingResult, dataWithASCIIEncodedLengthAndLeftPadding)
+        XCTAssertEqual(serializeDataWithASCIIEncodedLengthAndRightPaddingResult, dataWithASCIIEncodedLengthAndRightPadding)
         
-        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueWithNotNumericCharacters, format: fieldFormatWithBCDEncodedLength)) { error in
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueWithNotNumericCharacters, format: fieldFormatWithBCDEncodedLengthAndLeftPadding)) { error in
             guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
             guard case ISOError.SerializeMessageFailureReason.fieldValueIsNotConformToDeclaredFormat(_, _, _) = reason else { return XCTFail() }
         }
         
-        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueMoreThanMaxBCDEncodedLength, format: fieldFormatWithBCDEncodedLength)) { error in
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueMoreThanMaxBCDEncodedLength, format: fieldFormatWithBCDEncodedLengthAndLeftPadding)) { error in
             guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
             guard case ISOError.SerializeMessageFailureReason.fieldValueIsMoreThanMaximumLengthForDeclaredFormat(_, _, _) = reason else { return XCTFail() }
         }
         
-        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueMoreThanMaxASCIIEncodedLength, format: fieldFormatWithASCIIEncodedLength)) { error in
+        XCTAssertThrowsError(try messageSerializer.serializeField(value: valueMoreThanMaxASCIIEncodedLength, format: fieldFormatWithASCIIEncodedLengthAndLeftPadding)) { error in
             guard case ISOError.serializeMessageFailed(let reason) = error else { return XCTFail() }
             guard case ISOError.SerializeMessageFailureReason.fieldValueIsMoreThanMaximumLengthForDeclaredFormat(_, _, _) = reason else { return XCTFail() }
         }

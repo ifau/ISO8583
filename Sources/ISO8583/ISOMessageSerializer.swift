@@ -170,7 +170,7 @@ public final class ISOMessageSerializer {
                 .compactMap{ $0 }
             return Data(result)
         
-        case .numeric(let length):
+        case .numeric(let length, let padding):
             guard value.count == length else {
                 throw ISOError.serializeMessageFailed(reason: .fieldLengthIsNotEqualToDeclaredLength(fieldNumber: fieldNumber, declaredLength: length, actualLength: UInt(value.count)))
             }
@@ -178,7 +178,16 @@ public final class ISOMessageSerializer {
                 throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: .n, actualValue: value))
             }
             
-            let chars = length % 2 == 1 ? Array("0\(value)") : Array(value)
+            var chars = Array(value)
+            if length % 2 == 1 {
+                switch padding {
+                case .left:
+                    chars.insert("0", at: 0)
+                case .right:
+                    chars.append("0")
+                }
+            }
+            
             let result: [UInt8] = stride(from: 0, to: chars.count, by: 2)
                 .map { UInt8(String([chars[$0], chars[$0+1]]), radix: 16) }
                 .compactMap{ $0 }
@@ -263,7 +272,7 @@ public final class ISOMessageSerializer {
             result.append(Data(encodedValue))
             return result
             
-        case .llnum(let lengthFormat), .lllnum(let lengthFormat):
+        case .llnum(let lengthFormat, let padding), .lllnum(let lengthFormat, let padding):
             
             var result = Data()
             var numberOfBytesForLength : UInt = 0
@@ -272,14 +281,14 @@ public final class ISOMessageSerializer {
             switch lengthFormat {
             case .bcd:
                 numberOfBytesForLength = 1
-                if case .lllnum(_) = format {
+                if case .lllnum(_,_) = format {
                     numberOfBytesForLength = 2
                 }
                 /// 99 for 1 byte, 9999 for 2 bytes
                 maximumNumberOfBytesForValue = Int(pow(Double(10), Double(2*numberOfBytesForLength))) - 1
             case .ascii:
                 numberOfBytesForLength = 2
-                if case .lllnum(_) = format {
+                if case .lllnum(_,_) = format {
                     numberOfBytesForLength = 3
                 }
                 /// 99 for 2 bytes, 999 for 3 bytes
@@ -290,7 +299,15 @@ public final class ISOMessageSerializer {
                 throw ISOError.serializeMessageFailed(reason: .fieldValueIsNotConformToDeclaredFormat(fieldNumber: fieldNumber, declaredFormat: .n, actualValue: value))
             }
             
-            let chars = value.count % 2 == 1 ? Array("0\(value)") : Array(value)
+            var chars = Array(value)
+            if value.count % 2 == 1 {
+                switch padding {
+                case .left:
+                    chars.insert("0", at: 0)
+                case .right:
+                    chars.append("0")
+                }
+            }
             let numberOfBytesForValue = chars.count / 2
             
             guard numberOfBytesForValue <= maximumNumberOfBytesForValue else {

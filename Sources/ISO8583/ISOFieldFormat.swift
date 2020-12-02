@@ -14,7 +14,7 @@ public enum ISOFieldFormat {
     /// Fixed length binary value
     case binary(length: UInt)
     /// Fixed length numeric value
-    case numeric(length: UInt)
+    case numeric(length: UInt, paddingFormat: ISOPaddingFormat = .left)
     /// Variable length alphanumeric value with a 2 digit encoded length
     case llvar(lengthFormat: ISONumberFormat, valueFormat: ISOStringFormat)
     /// Variable length alphanumeric value with a 3 digit encoded length
@@ -24,9 +24,9 @@ public enum ISOFieldFormat {
     /// Variable length binary value with a 3 digit encoded length
     case lllbin(lengthFormat: ISONumberFormat)
     /// Variable length numeric value with a 2 digit encoded length
-    case llnum(lengthFormat: ISONumberFormat)
+    case llnum(lengthFormat: ISONumberFormat, paddingFormat: ISOPaddingFormat = .left)
     /// Variable length numeric value with a 3 digit encoded length
-    case lllnum(lengthFormat: ISONumberFormat)
+    case lllnum(lengthFormat: ISONumberFormat, paddingFormat: ISOPaddingFormat = .left)
     /// Undefined format
     case undefined
 }

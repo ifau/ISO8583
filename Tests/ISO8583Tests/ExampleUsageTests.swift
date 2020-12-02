@@ -165,7 +165,7 @@ class OpenWayScheme: ISOScheme {
 
     func fieldFormat(for fieldNumber: UInt) -> ISOFieldFormat {
         switch fieldNumber {
-        case 2: return .llnum(lengthFormat: .bcd)                             // Primary Account Number
+        case 2: return .llnum(lengthFormat: .bcd, paddingFormat: .right)      // Primary Account Number
         case 3: return .numeric(length: 6)                                    // Processing Code
         case 4: return .numeric(length: 12)                                   // Amount, Transaction
         case 5: return .numeric(length: 12)                                   // Amount, Settlement
