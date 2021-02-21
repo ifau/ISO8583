@@ -2,7 +2,7 @@
 
 ![](https://github.com/ifau/ISO8583/workflows/Build%20and%20Test/badge.svg)
 
-Swift framework for iOS/macOS/Linux that helps to create and parse ISO8583 financial transaction messages.
+Swift package for iOS/macOS/Linux that helps to create and parse ISO8583 financial transaction messages.
 
 ## Installation
 
@@ -20,7 +20,7 @@ Or with **Xcode 11** and above `File` – `Swift Packages` – `Add Package Depe
 
 ## Usage
 
-Define your custom processing scheme by adopting [`ISOScheme`](https://github.com/ifau/ISO8583/blob/master/Sources/ISO8583/ISOScheme.swift) protocol
+Define your custom processing scheme by adopting the [`ISOScheme`](https://github.com/ifau/ISO8583/blob/master/Sources/ISO8583/ISOScheme.swift) protocol
 
 ```swift
 class CustomProcessingScheme: ISOScheme {
@@ -58,13 +58,13 @@ class CustomProcessingScheme: ISOScheme {
 }
 ```
 
-Then, you can decode any binary message into `ISOMessage` object
+Then you can decode any binary message into the `ISOMessage` object
 
 ```swift
 let message = try? ISOMessageDeserializer().deserialize(data: data, scheme: CustomProcessingScheme())
 ```
 
-Or encode `ISOMessage` object into binary message
+Or encode the `ISOMessage` object into a binary message
 
 ```swift
 let message = ISOMessage(mti: 200, fields: [3:"000000", 24:"200", 35:"4000010000000001=991233000123410000"])

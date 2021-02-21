@@ -11,7 +11,7 @@ public final class ISOMessage {
     
     /// Message type identifier
     public var mti: UInt = 0
-    /// Message fields. Dictionary in wich key is field number, value is field value
+    /// Message fields. Dictionary in which key is field number, value is the field value
     public var fields : [UInt:String] = [:]
 
     /// Initialize `ISOMessage` object with default `mti` and `fields` values
@@ -22,7 +22,7 @@ public final class ISOMessage {
     /// Initialize `ISOMessage` object with provided `mti` and `fields` values
     /// - Parameters:
     ///   - mti: Message type identifier
-    ///   - fields: Message fields. Dictionary in wich key is field number, value is field value
+    ///   - fields: Message fields. Dictionary in which key is field number, value is the field value
     public convenience init(mti: UInt, fields: [UInt:String]) {
         self.init()
         self.mti = mti

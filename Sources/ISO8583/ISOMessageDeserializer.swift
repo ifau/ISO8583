@@ -13,12 +13,12 @@ public final class ISOMessageDeserializer {
         
     }
     
-    /// Deserialize binary message according to provided scheme
+    /// Deserialize binary message according to the provided scheme
     /// - Parameters:
-    ///   - data: `Data` which contains bytes of serialized message
-    ///   - scheme: `ISOScheme` which describe protocol that will be used for deserialize message
-    /// - Throws: `ISOError.deserializeMessageFailed(reason)`, see reason for details
-    /// - Returns: Deserialized `ISOMessage` object
+    ///   - data: `Data` that contains bytes of the serialized message
+    ///   - scheme: `ISOScheme` which describes a protocol that will be used to deserialize the message
+    /// - Throws: `ISOError.deserializeMessageFailed(reason)`, see the reason for details
+    /// - Returns: Deserialized the `ISOMessage` object
     public func deserialize(data: Data, scheme: ISOScheme) throws -> ISOMessage {
         
         let message = ISOMessage()
@@ -80,7 +80,7 @@ public final class ISOMessageDeserializer {
             var value : UInt = 0
             var power : UInt = 1
             for (_, byteValue) in data.enumerated().reversed() {
-                /// Check byte contain only numbers 0 1 2 3 4 5 6 7 8 9, without a b c d e f
+                // Check that byte contains only numbers 0 1 2 3 4 5 6 7 8 9, without a b c d e f
                 let mask8 = byteValue & 0x88; let mask4 = byteValue & 0x44; let mask2 = byteValue & 0x22
                 guard ((mask8 >> 2) & ((mask4 >> 1) | mask2) == 0) else {
                     let hexString = data.map { String(format: "%02X", $0) }.joined()

@@ -13,12 +13,12 @@ public final class ISOMessageSerializer {
         
     }
     
-    /// Serialize `ISOMessage` object into binary message according to provided scheme
+    /// Serialize the `ISOMessage` object into a binary message according to the provided scheme
     /// - Parameters:
     ///   - message: `ISOMessage` object for serialization
-    ///   - scheme: `ISOScheme` which describe protocol that will be used for serialize message
-    /// - Throws: `ISOError.serializeMessageFailed(reason)`, see reason for details
-    /// - Returns: Data of serialized message
+    ///   - scheme: `ISOScheme` which describes a protocol that will be used to serialize the message
+    /// - Throws: `ISOError.serializeMessageFailed(reason)`, see the reason for details
+    /// - Returns: Data of the serialized message
     public func serialize(message: ISOMessage, scheme: ISOScheme) throws -> Data {
         
         var result = Data()
@@ -56,7 +56,7 @@ public final class ISOMessageSerializer {
         
         switch format {
         case .bcd:
-            /// Check length is less or equal to max value (99 for 1 byte, 9999 for 2 bytes, 999999 for 3 bytes, etc.)
+            // Check that length is less or equal to max value (99 for 1 byte, 9999 for 2 bytes, 999999 for 3 bytes, etc.)
             let maximumLengthFloat = pow(Float(10), Float(2*numberOfBytes)) - 1
             let maximumLength = maximumLengthFloat < Float(UInt.max) ? UInt(maximumLengthFloat) : UInt.max
             guard length <= maximumLength else {
@@ -84,14 +84,14 @@ public final class ISOMessageSerializer {
             return Data(result)
             
         case .ascii:
-            /// Check length is less or equal to max value (9 for 1 byte, 99 for two bytes, 999 for three bytes, etc.)
+            // Check that length is less or equal to max value (9 for 1 byte, 99 for two bytes, 999 for three bytes, etc.)
             let maximumLengthFloat = pow(Float(10), Float(numberOfBytes)) - 1
             let maximumLength = maximumLengthFloat < Float(UInt.max) ? UInt(maximumLengthFloat) : UInt.max
             guard length <= maximumLength else {
                 throw ISOError.serializeMessageFailed(reason: .lengthIsMoreThanMaximumLengthForDeclaredFormat(maximumLength: maximumLength, actualLength: length))
             }
             guard let result = asciiString.data(using: .ascii) else {
-                /// Should never happen
+                // Should never happen
                 throw ISOError.serializeMessageFailed(reason: .lengthIsMoreThanMaximumLengthForDeclaredFormat(maximumLength: maximumLength, actualLength: length))
             }
             return result
@@ -121,7 +121,7 @@ public final class ISOMessageSerializer {
         
         let haveSecondaryBitmap = fieldNumbers.contains(where: { $0 > 64 })
         
-        /// Create ranges 1...8, 9...16, 17...24, 25...32, 33...40, 41...48, 49...56, 57...64
+        // Create ranges 1...8, 9...16, 17...24, 25...32, 33...40, 41...48, 49...56, 57...64
         let bitRanges = (1...(haveSecondaryBitmap ? 16 : 8)).map { (8*$0 - 7)...(8*$0) }
 
         var bitMap = bitRanges.map { bitRange -> UInt8 in
@@ -205,14 +205,14 @@ public final class ISOMessageSerializer {
                 if case .lllvar(_, _) = format {
                     numberOfBytesForLength = 2
                 }
-                /// 99 for 1 byte, 9999 for 2 bytes
+                // 99 for 1 byte, 9999 for 2 bytes
                 maximumNumberOfBytesForValue = Int(pow(Double(10), Double(2*numberOfBytesForLength))) - 1
             case .ascii:
                 numberOfBytesForLength = 2
                 if case .lllvar(_, _) = format {
                     numberOfBytesForLength = 3
                 }
-                /// 99 for 2 bytes, 999 for 3 bytes
+                // 99 for 2 bytes, 999 for 3 bytes
                 maximumNumberOfBytesForValue = Int(pow(Double(10), Double(numberOfBytesForLength))) - 1
             }
             
@@ -243,14 +243,14 @@ public final class ISOMessageSerializer {
                 if case .lllbin(_) = format {
                     numberOfBytesForLength = 2
                 }
-                /// 99 for 1 byte, 9999 for 2 bytes
+                // 99 for 1 byte, 9999 for 2 bytes
                 maximumNumberOfBytesForValue = Int(pow(Double(10), Double(2*numberOfBytesForLength))) - 1
             case .ascii:
                 numberOfBytesForLength = 2
                 if case .lllbin(_) = format {
                     numberOfBytesForLength = 3
                 }
-                /// 99 for 2 bytes, 999 for 3 bytes
+                // 99 for 2 bytes, 999 for 3 bytes
                 maximumNumberOfBytesForValue = Int(pow(Double(10), Double(numberOfBytesForLength))) - 1
             }
             
@@ -284,14 +284,14 @@ public final class ISOMessageSerializer {
                 if case .lllnum(_,_) = format {
                     numberOfBytesForLength = 2
                 }
-                /// 99 for 1 byte, 9999 for 2 bytes
+                // 99 for 1 byte, 9999 for 2 bytes
                 maximumNumberOfBytesForValue = Int(pow(Double(10), Double(2*numberOfBytesForLength))) - 1
             case .ascii:
                 numberOfBytesForLength = 2
                 if case .lllnum(_,_) = format {
                     numberOfBytesForLength = 3
                 }
-                /// 99 for 2 bytes, 999 for 3 bytes
+                // 99 for 2 bytes, 999 for 3 bytes
                 maximumNumberOfBytesForValue = Int(pow(Double(10), Double(numberOfBytesForLength))) - 1
             }
             

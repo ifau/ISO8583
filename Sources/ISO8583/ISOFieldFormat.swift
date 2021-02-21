@@ -9,23 +9,23 @@ import Foundation
 
 public enum ISOFieldFormat {
     
-    /// Fixed length alphanumeric value
+    /// Fixed-length alphanumeric value
     case alpha(length: UInt, valueFormat: ISOStringFormat)
-    /// Fixed length binary value
+    /// Fixed-length binary value
     case binary(length: UInt)
-    /// Fixed length numeric value
+    /// Fixed-length numeric value
     case numeric(length: UInt, paddingFormat: ISOPaddingFormat = .left)
-    /// Variable length alphanumeric value with a 2 digit encoded length
+    /// Variable-length alphanumeric value with a 2 digit encoded length
     case llvar(lengthFormat: ISONumberFormat, valueFormat: ISOStringFormat)
-    /// Variable length alphanumeric value with a 3 digit encoded length
+    /// Variable-length alphanumeric value with a 3 digit encoded length
     case lllvar(lengthFormat: ISONumberFormat, valueFormat: ISOStringFormat)
-    /// Variable length binary value with a 2 digit encoded length
+    /// Variable-length binary value with a 2 digit encoded length
     case llbin(lengthFormat: ISONumberFormat)
-    /// Variable length binary value with a 3 digit encoded length
+    /// Variable-length binary value with a 3 digit encoded length
     case lllbin(lengthFormat: ISONumberFormat)
-    /// Variable length numeric value with a 2 digit encoded length
+    /// Variable-length numeric value with a 2 digit encoded length
     case llnum(lengthFormat: ISONumberFormat, paddingFormat: ISOPaddingFormat = .left)
-    /// Variable length numeric value with a 3 digit encoded length
+    /// Variable-length numeric value with a 3 digit encoded length
     case lllnum(lengthFormat: ISONumberFormat, paddingFormat: ISOPaddingFormat = .left)
     /// Undefined format
     case undefined
