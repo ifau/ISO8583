@@ -61,6 +61,18 @@ public enum ISOError : Error {
     }
 }
 
+extension ISOError: LocalizedError {
+    
+    public var errorDescription: String? {
+        switch self {
+        case .serializeMessageFailed(let reason):
+            return reason.localizedDescription
+        case .deserializeMessageFailed(let reason):
+            return reason.localizedDescription
+        }
+    }
+}
+
 extension ISOError.SerializeMessageFailureReason {
     
     public var localizedDescription: String {
