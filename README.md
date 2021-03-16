@@ -61,14 +61,14 @@ class CustomProcessingScheme: ISOScheme {
 Then you can decode any binary message into the `ISOMessage` object
 
 ```swift
-let message = try? ISOMessageDeserializer().deserialize(data: data, scheme: CustomProcessingScheme())
+let message = try? ISOMessage(data: data, using: CustomProcessingScheme())
 ```
 
 Or encode the `ISOMessage` object into a binary message
 
 ```swift
 let message = ISOMessage(mti: 200, fields: [3:"000000", 24:"200", 35:"4000010000000001=991233000123410000"])
-let data = try? ISOMessageSerializer().serialize(message: message, scheme: CustomProcessingScheme())
+let data = try? message.data(using: CustomProcessingScheme())
 ```
 
 A complete example is available [here](https://github.com/ifau/ISO8583/blob/master/Tests/ISO8583Tests/ExampleUsageTests.swift).

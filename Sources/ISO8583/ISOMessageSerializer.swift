@@ -7,19 +7,13 @@
 
 import Foundation
 
-public final class ISOMessageSerializer {
+internal final class ISOMessageSerializer {
     
-    public init() {
+    internal init() {
         
     }
     
-    /// Serialize the `ISOMessage` object into a binary message according to the provided scheme
-    /// - Parameters:
-    ///   - message: `ISOMessage` object for serialization
-    ///   - scheme: `ISOScheme` which describes a protocol that will be used to serialize the message
-    /// - Throws: `ISOError.serializeMessageFailed(reason)`, see the reason for details
-    /// - Returns: Data of the serialized message
-    public func serialize(message: ISOMessage, scheme: ISOScheme) throws -> Data {
+    internal func serialize(message: ISOMessage, scheme: ISOScheme) throws -> Data {
         
         var result = Data()
         var tempData = Data()

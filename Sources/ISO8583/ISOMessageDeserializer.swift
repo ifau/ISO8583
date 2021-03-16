@@ -7,19 +7,13 @@
 
 import Foundation
 
-public final class ISOMessageDeserializer {
+internal final class ISOMessageDeserializer {
     
-    public init() {
+    internal init() {
         
     }
     
-    /// Deserialize binary message according to the provided scheme
-    /// - Parameters:
-    ///   - data: `Data` that contains bytes of the serialized message
-    ///   - scheme: `ISOScheme` which describes a protocol that will be used to deserialize the message
-    /// - Throws: `ISOError.deserializeMessageFailed(reason)`, see the reason for details
-    /// - Returns: Deserialized the `ISOMessage` object
-    public func deserialize(data: Data, scheme: ISOScheme) throws -> ISOMessage {
+    internal func deserialize(data: Data, scheme: ISOScheme) throws -> ISOMessage {
         
         let message = ISOMessage()
         var tempData = Data()

@@ -28,6 +28,27 @@ public final class ISOMessage {
         self.mti = mti
         self.fields = fields
     }
+    
+    /// Initialize `ISOMessage` object from binary message according to the provided scheme
+    /// - Parameters:
+    ///   - data: `Data` that contains bytes of the serialized message
+    ///   - scheme: `ISOScheme` which describes a protocol that will be used to deserialize the message
+    /// - Throws: `ISOError.deserializeMessageFailed(reason)`, see the reason for details
+    public convenience init(data: Data, using scheme: ISOScheme) throws {
+        let message = try ISOMessageDeserializer().deserialize(data: data, scheme: scheme)
+        self.init()
+        self.mti = message.mti
+        self.fields = message.fields
+    }
+    
+    /// Serialize the `ISOMessage` object into a binary message according to the provided scheme
+    /// - Parameters:
+    ///   - scheme: `ISOScheme` which describes a protocol that will be used to serialize the message
+    /// - Throws: `ISOError.serializeMessageFailed(reason)`, see the reason for details
+    /// - Returns: Data of the serialized message
+    public func data(using scheme: ISOScheme) throws -> Data {
+        return try ISOMessageSerializer().serialize(message: self, scheme: scheme)
+    }
 }
 
 extension ISOMessage : Equatable {

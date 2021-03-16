@@ -31,16 +31,16 @@ final class ExampleUsageTests: XCTestCase {
         
         let originalMessage : ISOMessage = ISOMessage(mti: 200, fields: fields)
         
-        let serializedSampleData : Data = try! ISOMessageSerializer().serialize(message: originalMessage, scheme: SampleProcessingScheme())
-        let deserializedSampleMessage : ISOMessage = try! ISOMessageDeserializer().deserialize(data: serializedSampleData, scheme: SampleProcessingScheme())
+        let serializedSampleData : Data = try! originalMessage.data(using: SampleProcessingScheme())
+        let deserializedSampleMessage : ISOMessage = try! ISOMessage(data: serializedSampleData, using: SampleProcessingScheme())
         XCTAssertEqual(deserializedSampleMessage, originalMessage)
         
-        let serializedSmartVistaData : Data = try! ISOMessageSerializer().serialize(message: originalMessage, scheme: SmartVistaScheme())
-        let deserializedSmartVistaMessage : ISOMessage = try! ISOMessageDeserializer().deserialize(data: serializedSmartVistaData, scheme: SmartVistaScheme())
+        let serializedSmartVistaData : Data = try! originalMessage.data(using: SmartVistaScheme())
+        let deserializedSmartVistaMessage : ISOMessage = try! ISOMessage(data: serializedSmartVistaData, using: SmartVistaScheme())
         XCTAssertEqual(deserializedSmartVistaMessage, originalMessage)
         
-        let serializedOpenWayData : Data = try! ISOMessageSerializer().serialize(message: originalMessage, scheme: OpenWayScheme())
-        let deserializedOpenWayMessage : ISOMessage = try! ISOMessageDeserializer().deserialize(data: serializedOpenWayData, scheme: OpenWayScheme())
+        let serializedOpenWayData : Data = try! originalMessage.data(using: OpenWayScheme())
+        let deserializedOpenWayMessage : ISOMessage = try! ISOMessage(data: serializedOpenWayData, using: OpenWayScheme())
         XCTAssertEqual(deserializedOpenWayMessage, originalMessage)
         
         /*
