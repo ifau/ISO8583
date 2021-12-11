@@ -4,8 +4,15 @@ import XCTest
 public func allTests() -> [XCTestCaseEntry] {
     return [
         testCase(ExampleUsageTests.allTests),
-        testCase(ISOMessageSerializerTests.allTests),
-        testCase(ISOMessageDeserializerTests.allTests)
+        testCase(AlphaFieldEncoderTests.allTests),
+        testCase(BinaryFieldEncoderTests.allTests),
+        testCase(BitmapEncoderTests.allTests),
+        testCase(LengthEncoderTests.allTests),
+        testCase(MTIEncoderTests.allTests),
+        testCase(NumericFieldEncoderTests.allTests),
+        testCase(VariableAlphaFieldEncoderTests.allTests),
+        testCase(VariableBinaryFieldEncoderTests.allTests),
+        testCase(VariableNumericFieldEncoderTests.allTests)
     ]
 }
 #endif

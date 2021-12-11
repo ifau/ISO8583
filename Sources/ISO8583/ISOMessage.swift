@@ -35,8 +35,8 @@ public final class ISOMessage {
     ///   - scheme: `ISOScheme` which describes a protocol that will be used to deserialize the message
     /// - Throws: `ISOError.deserializeMessageFailed(reason)`, see the reason for details
     public convenience init(data: Data, using scheme: ISOScheme) throws {
-        let message = try ISOMessageDeserializer().deserialize(data: data, scheme: scheme)
         self.init()
+        let message = try decode(data: data, using: scheme)
         self.mti = message.mti
         self.fields = message.fields
     }
@@ -47,7 +47,7 @@ public final class ISOMessage {
     /// - Throws: `ISOError.serializeMessageFailed(reason)`, see the reason for details
     /// - Returns: Data of the serialized message
     public func data(using scheme: ISOScheme) throws -> Data {
-        return try ISOMessageSerializer().serialize(message: self, scheme: scheme)
+        return try encode(using: scheme)
     }
 }
 
